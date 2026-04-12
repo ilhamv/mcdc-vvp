@@ -5,7 +5,6 @@ import sys
 
 from reference import reference
 
-
 # Reference solution
 output = sys.argv[1]
 with h5py.File(output, "r") as f:

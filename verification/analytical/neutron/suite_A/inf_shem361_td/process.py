@@ -5,7 +5,6 @@ import sys
 sys.path.append("../")
 import tool
 
-
 # Cases run
 N_min = int(sys.argv[1])
 N_max = int(sys.argv[2])

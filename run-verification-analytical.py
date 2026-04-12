@@ -18,6 +18,6 @@ if args.srun > 0 or args.mpiexec > 0 or args.mpirun > 0:
         mpi_option = f"--mpirun {args.mpirun}"
 
 # Analytical verification - Suite A
-os.chdir("verification/analytical/suite_A")
+os.chdir("verification/analytical/neutron/suite_A")
 os.system(f"python run.py {mpi_option}")
-os.chdir("../../../")
+os.chdir("../../../../")

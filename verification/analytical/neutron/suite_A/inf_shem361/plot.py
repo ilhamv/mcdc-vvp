@@ -5,7 +5,6 @@ import sys
 
 from reference import reference
 
-
 # Load results
 output = sys.argv[1]
 with np.load("../../data/MGXS-SHEM361.npz") as data:

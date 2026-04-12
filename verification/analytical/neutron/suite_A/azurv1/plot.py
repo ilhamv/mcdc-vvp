@@ -4,7 +4,6 @@ import matplotlib.animation as animation
 import h5py
 import sys
 
-
 # Reference solution
 data = np.load("reference.npz")
 phi_ref = data["phi"]
