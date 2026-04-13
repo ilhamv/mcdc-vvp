@@ -111,6 +111,8 @@ if verification:
 
     # The commands
     commands = f"python run.py --srun {cpus_per_node}\n"
+    # Move results to the result folder
+    commands += f"mv results {result_path}\n"
     
     # Build the PBS file
     pbs_text = pbs_template[:]
@@ -124,9 +126,6 @@ if verification:
 
     # Submit job
     os.system("%s submit.pbs" % job_submission)
-
-    # Move results to the result folder
-    os.system(f"mv results {result_path}")
 
     # Return to base
     os.chdir(base_path)
