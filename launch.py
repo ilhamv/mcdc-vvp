@@ -75,6 +75,9 @@ for suite, options in selected_suites.items():
     if options.get("walltime") is not None:
         command.extend(["--walltime", str(options["walltime"])])
 
+    if options.get("N_node_max") is not None:
+        command.extend(["--N_node_max", str(options["N_node_max"])])
+
     print("=" * 80)
     print(f"Launching suite: {suite}")
     print("Command:", " ".join(command))

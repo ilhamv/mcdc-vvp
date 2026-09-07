@@ -1,0 +1,6 @@
+maestro_run_*/
+results/
+study.yaml
+
+cases/*/*/runs/
+cases/*/*/output*.h5
