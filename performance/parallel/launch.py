@@ -1,4 +1,4 @@
-"""Build and launch the MC/DC performance study with Maestro."""
+"""Build and launch the MC/DC parallel-performance study with Maestro."""
 
 import argparse
 import os
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-REPO_DIR = Path(__file__).resolve().parent.parent
+REPO_DIR = Path(__file__).resolve().parents[2]
 if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 
@@ -28,7 +28,9 @@ except ImportError:
     USER_CONFIG = {}
 
 
-parser = argparse.ArgumentParser(description="Launch the MC/DC performance suite.")
+parser = argparse.ArgumentParser(
+    description="Launch the MC/DC parallel-performance suite."
+)
 parser.add_argument("--platform", choices=["dane"], default="dane")
 parser.add_argument(
     "--N_node_max",
@@ -129,7 +131,7 @@ for task in tasks:
 study = {
     "description": {
         "name": "maestro_run",
-        "description": "MC/DC performance scaling study",
+        "description": "MC/DC parallel-performance scaling study",
     },
     "env": {"variables": {}},
     "batch": {

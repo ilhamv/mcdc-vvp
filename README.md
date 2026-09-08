@@ -15,6 +15,7 @@ Workflow orchestration is performed using [Maestro](https://github.com/llnl/maes
 ```text
 configs/               Shared platform, user, and launch configurations
 verification/          Verification suites and their cases
+performance/           Parallel and serial performance suites
 results/               Processed results organized by suite
 release/               Flattened figures prepared as release assets
 
@@ -58,7 +59,7 @@ cp configs/launch_config.py.template configs/launch_config.py
 Edit `configs/launch_config.py` to enable the desired suites and set their platform and launch options.
 Use `platform=None` for local execution or a name from `configs/platform_config.py` for HPC execution.
 For HPC execution, `N_node` sets the number of nodes and each node uses all available CPU cores.
-The performance suite instead uses `N_node_max` to generate every power-of-two node count through that value.
+The parallel-performance suite instead uses `N_node_max` to generate every power-of-two node count through that value.
 For HPC execution, a suite's base `walltime` in hours is scaled by each case's `walltime_factor` in that suite's `task.yaml`.
 The scaled value is rounded up to the scheduler's supported resolution, the platform maximum remains the final limit, and local execution ignores walltime settings.
 Cases with every expected output are skipped, while partially complete cases retain their existing outputs and run only the missing sampling levels.
@@ -139,8 +140,9 @@ Validation suites compare MC/DC predictions against experimental measurements.
 
 ## Performance
 
-The [performance suite](performance/README.md) evaluates computational performance, scalability, and efficiency across supported execution platforms.
-Its first case is the Kobayashi analog problem on Dane.
+The [performance suites](performance/README.md) evaluate computational performance, scalability, and efficiency across supported execution platforms.
+The [parallel-performance suite](performance/parallel/README.md) begins with the Kobayashi analog problem on Dane.
+The [serial-performance suite](performance/serial/README.md) will be defined by its separate study plan.
 
 ## Documentation
 

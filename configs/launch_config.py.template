@@ -17,7 +17,7 @@ LAUNCH_CONFIG = {
         "N_node": 1,
         "walltime": None,
     },
-    "performance": {
+    "performance/parallel": {
         "enabled": False,
         "platform": "dane",
         "N_node_max": 64,

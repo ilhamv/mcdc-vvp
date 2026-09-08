@@ -1,7 +1,7 @@
-# Performance
+# Parallel Performance
 
-This suite measures MC/DC throughput, workload saturation, and parallel scaling.
-It uses one common automation workflow for all registered performance cases and can run independently or through the top-level MC/DC-VVP workflow.
+This suite measures MC/DC throughput, workload saturation, and parallel scaling across multiple compute nodes.
+It uses one common automation workflow for all registered parallel-performance cases and can run independently or through the top-level MC/DC-VVP workflow.
 
 ## Directory layout
 

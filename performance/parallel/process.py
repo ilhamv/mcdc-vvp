@@ -1,4 +1,4 @@
-"""Collect completed runs and generate scaling tables and figures."""
+"""Collect parallel runs and generate scaling tables and figures."""
 
 import argparse
 import ast

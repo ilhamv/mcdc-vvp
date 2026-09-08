@@ -1,4 +1,4 @@
-"""Shared definitions for performance-study tasks."""
+"""Shared definitions for parallel-performance tasks."""
 
 from pathlib import Path
 

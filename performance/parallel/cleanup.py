@@ -1,4 +1,4 @@
-"""Remove generated performance-study outputs and results."""
+"""Remove generated parallel-performance outputs and results."""
 
 import shutil
 from pathlib import Path

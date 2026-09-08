@@ -1,4 +1,4 @@
-"""Run one point in a performance-case scaling matrix."""
+"""Run one point in a parallel-performance scaling matrix."""
 
 import argparse
 import shlex
@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-REPO_DIR = Path(__file__).resolve().parent.parent
+REPO_DIR = Path(__file__).resolve().parents[2]
 if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 
