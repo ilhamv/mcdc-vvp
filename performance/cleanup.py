@@ -4,7 +4,10 @@ import shutil
 from pathlib import Path
 
 suite_dir = Path(__file__).resolve().parent
-for runs_dir in suite_dir.glob("cases/*/*/runs"):
+cases_dir = suite_dir / "cases"
+for output_file in cases_dir.glob("*/*/output*.h5"):
+    output_file.unlink()
+for runs_dir in cases_dir.glob("*/*/runs"):
     if runs_dir.is_dir():
         shutil.rmtree(runs_dir)
 for maestro_run in suite_dir.glob("maestro_run_*"):

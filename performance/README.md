@@ -10,7 +10,7 @@ cases/              Performance case definitions
   <problem>/
     <method>/
       input.py       Define and run one MC/DC model and method
-      runs/          Generated outputs for the scaling matrix
+      output_*.h5    Generated outputs for the scaling matrix
 maestro_run_*/      Generated Maestro workflow directories
 results/            Processed tables and scaling figures
 
@@ -70,7 +70,8 @@ python launch.py --platform dane --N_node_max 64
 ```
 
 Completed matrix points are skipped on relaunch.
-Each task stores a runtime-only HDF5 result and its effective configuration under the case's `runs/` directory.
+Each task stores a runtime-only HDF5 result directly in its case directory.
+Output names encode the node count and workload multiplier, for example `output_n004_m16.h5`.
 
 After the jobs finish, run `python process.py`.
 Each case receives a CSV table, a per-node performance envelope, a weak-scaling figure, and a strong-scaling figure under `results/<problem>/<method>/`.

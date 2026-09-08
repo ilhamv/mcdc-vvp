@@ -65,10 +65,6 @@ def case_directory(suite_directory, task):
     return Path(suite_directory) / "cases" / task["problem"] / task["method"]
 
 
-def run_directory(suite_directory, task):
-    return (
-        case_directory(suite_directory, task)
-        / "runs"
-        / f"node_{task['N_node']:03d}"
-        / f"multiplier_{task['workload_multiplier']:02d}"
-    )
+def output_name(task):
+    """Return the unique case-local output name for one matrix point."""
+    return f"output_n{task['N_node']:03d}_m{task['workload_multiplier']:02d}"

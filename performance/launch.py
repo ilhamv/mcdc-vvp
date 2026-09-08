@@ -1,7 +1,6 @@
 """Build and launch the MC/DC performance study with Maestro."""
 
 import argparse
-import hashlib
 import os
 import subprocess
 import sys
@@ -19,8 +18,8 @@ from util import (
     NODE_COUNTS,
     WALLTIME_BASE_HOURS,
     case_directory,
+    output_name,
     performance_tasks,
-    run_directory,
 )
 
 try:
@@ -79,40 +78,18 @@ with task_file.open("r") as stream:
 tasks = performance_tasks(task_config, args.N_node_max)
 
 
-def input_digest(path):
-    return hashlib.sha256(path.read_bytes()).hexdigest()
-
-
-def output_is_current(task, input_file):
-    output_dir = run_directory(suite_dir, task)
-    output_file = output_dir / "output.h5"
-    metadata_file = output_dir / "task.yaml"
-    if not output_file.is_file():
-        return False
-    if not metadata_file.is_file():
-        raise RuntimeError(f"Existing output has no task metadata: {output_file}")
-    with metadata_file.open("r") as stream:
-        metadata = yaml.safe_load(stream)
-    expected = task.copy()
-    expected["input_sha256"] = input_digest(input_file)
-    if any(metadata.get(key) != value for key, value in expected.items()):
-        raise RuntimeError(
-            f"Existing output does not match the current configuration: {output_file}. "
-            "Run performance/cleanup.py before relaunching."
-        )
-    return True
-
-
 steps = []
 skipped_tasks = []
 case_walltimes = {}
 cpu_cores = platform["cpu_cores_per_node"]
 
 for task in tasks:
-    input_file = case_directory(suite_dir, task) / "input.py"
+    case_dir = case_directory(suite_dir, task)
+    input_file = case_dir / "input.py"
+    output_file = case_dir / f"{output_name(task)}.h5"
     if not input_file.is_file():
         raise FileNotFoundError(f"Performance input not found: {input_file}")
-    if output_is_current(task, input_file):
+    if output_file.is_file():
         skipped_tasks.append(task["name"])
         print(f"Skip complete task: {task['name']}")
         continue

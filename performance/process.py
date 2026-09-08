@@ -3,7 +3,6 @@
 import argparse
 import ast
 import csv
-import hashlib
 import shutil
 from collections import defaultdict
 from pathlib import Path
@@ -11,6 +10,8 @@ from pathlib import Path
 import h5py
 import matplotlib.pyplot as plt
 import yaml
+
+from util import case_directory, output_name, performance_tasks
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -41,28 +42,45 @@ def runtime_value(runtime, name):
     return float(runtime[name][()]) if name in runtime else float("nan")
 
 
-records = []
-pattern = "cases/*/*/runs/node_*/multiplier_*/task.yaml"
-for metadata_file in sorted(suite_dir.glob(pattern)):
-    output_file = metadata_file.with_name("output.h5")
-    if not output_file.is_file():
-        print(f"Skip incomplete task: {metadata_file.parent}")
-        continue
-    with metadata_file.open("r") as stream:
-        metadata = yaml.safe_load(stream)
-    input_file = (
-        suite_dir / "cases" / metadata["problem"] / metadata["method"] / "input.py"
+if args.maestro_run is None:
+    maestro_runs = sorted(
+        suite_dir.glob("maestro_run_*"), key=lambda path: path.stat().st_mtime
     )
-    input_sha256 = hashlib.sha256(input_file.read_bytes()).hexdigest()
-    if input_sha256 != metadata["input_sha256"]:
-        raise RuntimeError(
-            f"The input changed after this task ran: {metadata_file.parent}"
-        )
+    if not maestro_runs:
+        raise FileNotFoundError("No maestro_run_* directory found.")
+    maestro_run = maestro_runs[-1]
+else:
+    maestro_run = Path(args.maestro_run).expanduser()
+    if not maestro_run.is_absolute():
+        maestro_run = suite_dir / maestro_run
+
+launch_config_file = maestro_run / "launch_config.yaml"
+task_file = maestro_run / "task.yaml"
+if not launch_config_file.is_file():
+    raise FileNotFoundError(f"Launch config not found: {launch_config_file}")
+if not task_file.is_file():
+    raise FileNotFoundError(f"Task config not found: {task_file}")
+
+with launch_config_file.open("r") as stream:
+    launch_config = yaml.safe_load(stream)
+with task_file.open("r") as stream:
+    task_config = yaml.safe_load(stream)
+
+tasks = performance_tasks(task_config, launch_config["N_node_max"])
+records = []
+for task in tasks:
+    case_dir = case_directory(suite_dir, task)
+    input_file = case_dir / "input.py"
+    output_file = case_dir / f"{output_name(task)}.h5"
+    if not output_file.is_file():
+        print(f"Skip incomplete task: {task['name']}")
+        continue
+
     N_batch = input_batch_count(input_file)
     with h5py.File(output_file, "r") as output:
         runtime = output["runtime"]
         record = {
-            key: metadata[key]
+            key: task[key]
             for key in (
                 "problem",
                 "method",
@@ -76,7 +94,7 @@ for metadata_file in sorted(suite_dir.glob(pattern)):
         }
         record.update(
             N_batch=N_batch,
-            N_history=metadata["N_particle"] * N_batch,
+            N_history=task["N_particle"] * N_batch,
             runtime_total=runtime_value(runtime, "total"),
             runtime_preparation=runtime_value(runtime, "preparation"),
             runtime_simulation=runtime_value(runtime, "simulation"),
@@ -96,21 +114,8 @@ results_dir = suite_dir / "results"
 if results_dir.is_dir():
     shutil.rmtree(results_dir)
 results_dir.mkdir()
-
-if args.maestro_run is None:
-    maestro_runs = sorted(
-        suite_dir.glob("maestro_run_*"), key=lambda path: path.stat().st_mtime
-    )
-    maestro_run = maestro_runs[-1] if maestro_runs else None
-else:
-    maestro_run = Path(args.maestro_run).expanduser()
-    if not maestro_run.is_absolute():
-        maestro_run = suite_dir / maestro_run
-if maestro_run is not None:
-    for name in ("launch_config.yaml", "task.yaml"):
-        source = maestro_run / name
-        if source.is_file():
-            shutil.copy2(source, results_dir / name)
+shutil.copy2(launch_config_file, results_dir / "launch_config.yaml")
+shutil.copy2(task_file, results_dir / "task.yaml")
 
 
 def save_figure(figure, path):
