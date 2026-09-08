@@ -1,0 +1,171 @@
+"""Build and launch the MC/DC serial-performance study with Maestro."""
+
+import argparse
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+import yaml
+
+REPO_DIR = Path(__file__).resolve().parents[2]
+if str(REPO_DIR) not in sys.path:
+    sys.path.insert(0, str(REPO_DIR))
+
+from configs.platform_config import PLATFORMS
+from configs.util import get_case_walltime
+from util import case_outputs_complete, particle_counts
+
+try:
+    from configs.user_config import USER_CONFIG
+except ImportError:
+    USER_CONFIG = {}
+
+
+parser = argparse.ArgumentParser(
+    description="Launch the MC/DC serial-performance suite."
+)
+parser.add_argument("--platform", default="local", choices=["local"] + list(PLATFORMS))
+parser.add_argument(
+    "--walltime",
+    type=float,
+    default=None,
+    help="Set the base walltime in hours; each case scales it by walltime_factor.",
+)
+args = parser.parse_args()
+
+
+suite_dir = Path(__file__).resolve().parent
+task_file = suite_dir / "task.yaml"
+run_case = suite_dir / "run_case.py"
+study_file = suite_dir / "study.yaml"
+local = args.platform == "local"
+user_platform_config = USER_CONFIG.get(args.platform, {})
+
+mcdc_python = user_platform_config.get("mcdc_python")
+if mcdc_python is None:
+    mcdc_python = sys.executable
+else:
+    mcdc_python = str(Path(mcdc_python).expanduser())
+
+if not local:
+    platform = PLATFORMS[args.platform]
+    account = user_platform_config.get("account")
+    queue = user_platform_config.get("queue")
+    reservation = user_platform_config.get("reservation")
+    if account is None:
+        raise ValueError(
+            f"Platform '{args.platform}' requires an account. "
+            "Create configs/user_config.py from configs/user_config.py.template."
+        )
+
+with task_file.open("r") as stream:
+    tasks = yaml.safe_load(stream)
+
+
+steps = []
+case_walltimes = {}
+skipped_cases = []
+for case_name, task in tasks.items():
+    case_dir = suite_dir / "cases" / case_name
+    input_file = case_dir / "input.py"
+    if not input_file.is_file():
+        raise FileNotFoundError(f"Serial-performance input not found: {input_file}")
+
+    counts = particle_counts(task["logN_min"], task["logN_max"], task["N_task"])
+    if case_outputs_complete(case_dir, counts):
+        skipped_cases.append(case_name)
+        print(f"Skip complete case: {case_name}")
+        continue
+
+    command = f"{mcdc_python} {run_case} --name {case_name}"
+    if not local:
+        command += ' --launcher "$(LAUNCHER)"'
+
+    run = {"cmd": command}
+    if not local:
+        walltime = get_case_walltime(task, platform, args.walltime)
+        case_walltimes[case_name] = walltime
+        run.update(nodes=1, procs=1, walltime=walltime, exclusive=True)
+
+    steps.append(
+        {
+            "name": case_name.replace("-", "_"),
+            "description": f"Run serial-performance case: {case_name}",
+            "run": run,
+        }
+    )
+
+if not steps:
+    print("All configured cases are complete; nothing to launch.")
+    raise SystemExit(0)
+
+study = {
+    "description": {
+        "name": "maestro_run",
+        "description": "MC/DC serial-performance suite",
+    },
+    "env": {"variables": {}},
+    "study": steps,
+}
+if not local:
+    batch = {
+        "type": platform["scheduler"],
+        "host": platform["host"],
+        "bank": account,
+    }
+    if queue is not None:
+        batch["queue"] = queue
+    if reservation is not None:
+        batch["reservation"] = reservation
+    study["batch"] = batch
+
+with study_file.open("w") as stream:
+    yaml.dump(study, stream, sort_keys=False)
+
+maestro_python = None if local else user_platform_config.get("maestro_python")
+env = os.environ.copy()
+if maestro_python is None:
+    maestro_command = ["maestro", "run", "study.yaml"]
+else:
+    maestro_python = Path(maestro_python).expanduser()
+    env["PATH"] = f"{maestro_python.parent}:{env['PATH']}"
+    maestro_command = [
+        str(maestro_python),
+        "-m",
+        "maestrowf.maestro",
+        "run",
+        "study.yaml",
+    ]
+subprocess.run(maestro_command, cwd=suite_dir, check=True, env=env)
+
+maestro_runs = sorted(
+    suite_dir.glob("maestro_run_*"), key=lambda path: path.stat().st_mtime
+)
+if not maestro_runs:
+    raise RuntimeError("Maestro did not create a maestro_run_* directory.")
+latest_run = maestro_runs[-1]
+
+launch_config = {
+    "platform": args.platform,
+    "scheduler": "local" if local else platform["scheduler"],
+    "N_node": 1,
+    "N_process": 1,
+    "walltime": args.walltime,
+    "case_walltimes": case_walltimes,
+    "mcdc_python": mcdc_python,
+}
+with (latest_run / "launch_config.yaml").open("w") as stream:
+    yaml.dump(launch_config, stream, sort_keys=False)
+with task_file.open("r") as stream:
+    task_config = yaml.safe_load(stream)
+with (latest_run / "task.yaml").open("w") as stream:
+    yaml.dump(task_config, stream, sort_keys=False)
+
+print(f"Platform : {args.platform}")
+print("Nodes    : 1")
+print("Procs    : 1")
+print(f"Python   : {mcdc_python}")
+print(f"Cases    : {len(steps)}")
+print(f"Skipped  : {len(skipped_cases)}")
+print(f"Study    : {study_file}")

@@ -1,0 +1,11 @@
+c5g7-4phase:
+  logN_min: 1
+  logN_max: 5
+  N_task: 7
+  walltime_factor: 6.0
+
+kobayashi:
+  logN_min: 2
+  logN_max: 6
+  N_task: 7
+  walltime_factor: 1.0

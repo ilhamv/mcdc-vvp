@@ -6,4 +6,4 @@ Each suite owns its cases, task configuration, launch workflow, processing workf
 ## Suites
 
 - [Parallel performance](parallel/README.md) measures throughput, workload saturation, and scaling across compute nodes.
-- [Serial performance](serial/README.md) will define the serial study workflow.
+- [Serial performance](serial/README.md) compares Python and Numba performance using one process.

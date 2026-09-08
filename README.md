@@ -142,7 +142,7 @@ Validation suites compare MC/DC predictions against experimental measurements.
 
 The [performance suites](performance/README.md) evaluate computational performance, scalability, and efficiency across supported execution platforms.
 The [parallel-performance suite](performance/parallel/README.md) begins with the Kobayashi analog problem on Dane.
-The [serial-performance suite](performance/serial/README.md) will be defined by its separate study plan.
+The [serial-performance suite](performance/serial/README.md) compares Python and Numba runtime and tracking rate using one process.
 
 ## Documentation
 
