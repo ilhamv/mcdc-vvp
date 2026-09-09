@@ -369,7 +369,7 @@ simulation.set_tallies([tally])
 
 # Settings
 simulation.settings.N_particle = int(1e6)
-simulation.settings.N_batch = 30
+simulation.settings.N_batch = 10
 simulation.settings.active_bank_buffer = 10000
 
 # Run

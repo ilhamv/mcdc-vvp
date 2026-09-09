@@ -77,7 +77,7 @@ simulation.set_tallies([flux_tally, density_tally])
 
 # Settings
 simulation.settings.N_particle = 100
-simulation.settings.N_batch = 2
+simulation.settings.N_batch = 10
 
 # Run
 simulation.run()
