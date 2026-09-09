@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from util import MODES, output_name, particle_counts
+from util import output_name, particle_counts, task_modes
 
 parser = argparse.ArgumentParser(description="Run one MC/DC serial-performance case.")
 parser.add_argument("--name", required=True, help="Serial-performance case name.")
@@ -33,6 +33,7 @@ with task_file.open("r") as stream:
 if args.name not in tasks:
     raise ValueError(f"Case '{args.name}' is not listed in {task_file}")
 task = tasks[args.name]
+modes = task_modes(task)
 
 
 for N_particle in particle_counts(
@@ -41,7 +42,7 @@ for N_particle in particle_counts(
     task["N_task"],
 ):
     N_particle = int(N_particle)
-    for mode in MODES:
+    for mode in modes:
         output = output_name(mode, N_particle)
         output_file = case_dir / f"{output}.h5"
         if output_file.is_file():

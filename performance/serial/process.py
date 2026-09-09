@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 
-from util import MODES, output_name, particle_counts
+from util import output_name, particle_counts, task_modes
 
 parser = argparse.ArgumentParser(description="Process the serial-performance suite.")
 parser.add_argument(
@@ -47,7 +47,7 @@ def performance_metrics(output_file):
 
 
 def add_series(axis, histories, python, numba, numba_without_compilation):
-    """Add the three requested execution-mode series to an axis."""
+    """Add Numba series and the Python series when enabled."""
     axis.plot(
         histories,
         numba,
@@ -57,14 +57,15 @@ def add_series(axis, histories, python, numba, numba_without_compilation):
         markerfacecolor="none",
         label="Numba",
     )
-    axis.plot(
-        histories,
-        python,
-        color="red",
-        linestyle="--",
-        marker="x",
-        label="Python",
-    )
+    if python is not None:
+        axis.plot(
+            histories,
+            python,
+            color="red",
+            linestyle="--",
+            marker="x",
+            label="Python",
+        )
     axis.plot(
         histories,
         numba_without_compilation,
@@ -116,6 +117,7 @@ shutil.copy2(task_file, results_dir / "task.yaml")
 
 processed_cases = 0
 for case_name, task in tasks.items():
+    modes = task_modes(task)
     case_dir = suite_dir / "cases" / case_name
     records = []
 
@@ -126,7 +128,7 @@ for case_name, task in tasks.items():
     ):
         N_particle = int(N_particle)
         output_files = {
-            mode: case_dir / f"{output_name(mode, N_particle)}.h5" for mode in MODES
+            mode: case_dir / f"{output_name(mode, N_particle)}.h5" for mode in modes
         }
         missing = [mode for mode, path in output_files.items() if not path.is_file()]
         if missing:
@@ -139,25 +141,25 @@ for case_name, task in tasks.items():
         metrics = {
             mode: performance_metrics(path) for mode, path in output_files.items()
         }
-        for mode in MODES:
+        for mode in modes:
             if metrics[mode]["N_particle"] != N_particle:
                 raise ValueError(f"Particle count mismatch in {output_files[mode]}.")
         for key in ("N_batch", "N_history", "N_rank"):
-            if metrics["python"][key] != metrics["numba"][key]:
+            if any(metrics[mode][key] != metrics["numba"][key] for mode in modes):
                 raise ValueError(
                     f"Mismatched {key} between Python and Numba for {case_name}, N={N_particle}."
                 )
         record = {
-            key: metrics["python"][key]
+            key: metrics["numba"][key]
             for key in ("N_particle", "N_batch", "N_history", "N_rank")
         }
-        for mode in MODES:
+        for mode in modes:
             record[f"runtime_{mode}"] = metrics[mode]["runtime"]
             record[f"effective_variance_{mode}"] = metrics[mode]["effective_variance"]
         records.append(record)
 
     if len(records) < 3:
-        print(f"Skip incomplete case: {case_name}; fewer than three paired points.")
+        print(f"Skip incomplete case: {case_name}; fewer than three complete points.")
         continue
 
     records.sort(key=lambda record: record["N_history"])
@@ -169,8 +171,10 @@ for case_name, task in tasks.items():
         record["runtime_numba_without_compilation"] = (
             adjusted_runtime if adjusted_runtime > 0.0 else float("nan")
         )
-        record["tracking_rate_python"] = record["N_history"] / record["runtime_python"]
-        record["tracking_rate_numba"] = record["N_history"] / record["runtime_numba"]
+        for mode in modes:
+            record[f"tracking_rate_{mode}"] = (
+                record["N_history"] / record[f"runtime_{mode}"]
+            )
         record["tracking_rate_numba_without_compilation"] = (
             record["N_history"] / adjusted_runtime
             if adjusted_runtime > 0.0
@@ -186,7 +190,9 @@ for case_name, task in tasks.items():
         writer.writerows(records)
 
     histories = [record["N_history"] for record in records]
-    runtime_python = [record["runtime_python"] for record in records]
+    runtime_python = (
+        [record["runtime_python"] for record in records] if "python" in modes else None
+    )
     runtime_numba = [record["runtime_numba"] for record in records]
     runtime_adjusted = [
         record["runtime_numba_without_compilation"] for record in records
@@ -220,7 +226,11 @@ for case_name, task in tasks.items():
     axis.legend()
     save_figure(figure, destination / "runtime.png")
 
-    tracking_python = [record["tracking_rate_python"] for record in records]
+    tracking_python = (
+        [record["tracking_rate_python"] for record in records]
+        if "python" in modes
+        else None
+    )
     tracking_numba = [record["tracking_rate_numba"] for record in records]
     tracking_adjusted = [
         record["tracking_rate_numba_without_compilation"] for record in records

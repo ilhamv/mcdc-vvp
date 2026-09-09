@@ -1,6 +1,6 @@
 # Serial Performance
 
-This suite compares MC/DC runtime and tracking rate in Python and Numba modes using one process.
+This suite measures MC/DC runtime and tracking rate in Numba mode, optionally comparing Python mode, using one process.
 It can run locally or on one exclusive cluster node through the top-level MC/DC-VVP workflow.
 
 ## Directory layout
@@ -17,7 +17,7 @@ task.yaml           Configure the particle-count study for each case
 study.yaml          Generated Maestro study definition
 
 launch.py           Build and launch the Maestro study
-run_case.py         Run one case in Python and Numba modes
+run_case.py         Run one case in its enabled execution modes
 process.py          Generate runtime and tracking-rate results
 
 cleanup.py          Remove generated outputs and results
@@ -29,7 +29,9 @@ util.py             Provide shared task-generation utilities
 Each `task.yaml` entry defines logarithmic particle-count bounds, the number of sampling points, and a walltime factor.
 The input file defines settings such as `N_batch`; processing reads the actual settings and total history count from each output.
 
-Each sampling point runs once in Python mode and once in Numba mode.
+Each sampling point runs once in Numba mode.
+Set `python_mode: true` in a case's `task.yaml` entry to also run Python mode, or `python_mode: false` for Numba only.
+When omitted, `python_mode` defaults to `true`.
 Every run uses `--no-tally_output`, retaining standard metadata, runtime details, and the `performance/` group without saving tally results.
 Output names encode the mode and particle count, for example `output_numba_10000.h5`.
 Numba caching remains disabled so every Numba measurement includes compilation.
@@ -49,7 +51,7 @@ Launch on a supported cluster:
 python launch.py --platform dane --walltime 1.0
 ```
 
-Completed mode and particle-count outputs are skipped on relaunch.
+Completed mode and particle-count outputs are skipped on relaunch, and case completion requires only the enabled modes.
 Run `python process.py` after the jobs finish.
 Pass a `maestro_run_<timestamp>` directory to process a specific launch.
 
@@ -58,7 +60,8 @@ The runtime is the total MC/DC runtime, including Numba compilation.
 The tracking rate is the number of histories divided by total runtime.
 Runtime and history count come from `performance/runtime` and `performance/N_history`.
 The CSV also records `performance/N_rank` and the effective variance for each execution mode.
-Paired outputs must have matching history and batch counts and exactly one MPI rank.
+When Python mode is enabled, paired outputs must have matching history and batch counts and exactly one MPI rank.
+Numba-only cases do not require Python outputs and omit Python columns and curves from the results.
 The Numba compilation time is estimated as the median of the three smallest-history Numba runtimes.
 The compilation-adjusted Numba series subtracts that estimate from each Numba runtime.
 

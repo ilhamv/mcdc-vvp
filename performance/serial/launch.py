@@ -14,7 +14,7 @@ if str(REPO_DIR) not in sys.path:
 
 from configs.platform_config import PLATFORMS
 from configs.util import get_case_walltime
-from util import case_outputs_complete, particle_counts
+from util import case_outputs_complete, particle_counts, task_modes
 
 try:
     from configs.user_config import USER_CONFIG
@@ -73,7 +73,7 @@ for case_name, task in tasks.items():
         raise FileNotFoundError(f"Serial-performance input not found: {input_file}")
 
     counts = particle_counts(task["logN_min"], task["logN_max"], task["N_task"])
-    if case_outputs_complete(case_dir, counts):
+    if case_outputs_complete(case_dir, counts, task_modes(task)):
         skipped_cases.append(case_name)
         print(f"Skip complete case: {case_name}")
         continue
