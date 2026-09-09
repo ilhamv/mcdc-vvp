@@ -56,7 +56,7 @@ for N_particle in particle_counts(
             f"--N_particle={N_particle}",
             f"--output={output}",
             "--no-progress_bar",
-            "--runtime_output",
+            "--no-tally_output",
         ]
 
         print("=" * 80)

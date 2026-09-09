@@ -9,7 +9,7 @@ It can run locally or on one exclusive cluster node through the top-level MC/DC-
 cases/              Serial performance case definitions
   <case>/
     input.py         Define and run one MC/DC model
-    output_*.h5      Generated runtime-only outputs
+    output_*.h5      Generated outputs without tally results
 maestro_run_*/      Generated Maestro workflow directories
 results/            Processed tables and performance figures
 
@@ -27,10 +27,10 @@ util.py             Provide shared task-generation utilities
 ## Configuration
 
 Each `task.yaml` entry defines logarithmic particle-count bounds, the number of sampling points, and a walltime factor.
-The input file remains the source of truth for `N_batch`, so the number of histories is `N_particle * N_batch`.
+The input file defines settings such as `N_batch`; processing reads the actual settings and total history count from each output.
 
 Each sampling point runs once in Python mode and once in Numba mode.
-Every run uses `--runtime_output`, so its HDF5 file contains only the existing MC/DC runtime datasets.
+Every run uses `--no-tally_output`, retaining standard metadata, runtime details, and the `performance/` group without saving tally results.
 Output names encode the mode and particle count, for example `output_numba_10000.h5`.
 Numba caching remains disabled so every Numba measurement includes compilation.
 Cluster execution requests one process on one exclusive node.
@@ -56,10 +56,14 @@ Pass a `maestro_run_<timestamp>` directory to process a specific launch.
 For each case, processing creates `records.csv`, `runtime.png`, and `tracking_rate.png`.
 The runtime is the total MC/DC runtime, including Numba compilation.
 The tracking rate is the number of histories divided by total runtime.
+Runtime and history count come from `performance/runtime` and `performance/N_history`.
+The CSV also records `performance/N_rank` and the effective variance for each execution mode.
+Paired outputs must have matching history and batch counts and exactly one MPI rank.
 The Numba compilation time is estimated as the median of the three smallest-history Numba runtimes.
 The compilation-adjusted Numba series subtracts that estimate from each Numba runtime.
 
 Run `python cleanup.py` to remove generated outputs, Maestro records, processed results, and `study.yaml`.
+Older runtime-only outputs lack the required metrics and must be moved aside or removed before relaunching, since existing outputs are skipped.
 
 ## Cases
 

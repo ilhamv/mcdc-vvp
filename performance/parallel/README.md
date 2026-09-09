@@ -70,12 +70,17 @@ python launch.py --platform dane --N_node_max 64
 ```
 
 Completed matrix points are skipped on relaunch.
-Each task stores a runtime-only HDF5 result directly in its case directory.
+Each task uses `--no-tally_output` and stores an HDF5 result directly in its case directory.
+The output retains standard metadata, runtime details, and the `performance/` group without saving tally results.
 Output names encode the node count and workload multiplier, for example `output_n004_m16.h5`.
 
 After the jobs finish, run `python process.py`.
 Each case receives a CSV table, a per-node performance envelope, a weak-scaling figure, and a strong-scaling figure under `results/<problem>/<method>/`.
+Tracking rates and scaling efficiencies use total runtime from `performance/runtime`, including compilation and output work.
+History counts come from `performance/N_history`, rather than being inferred from the input file.
+The CSV also records `performance/N_rank`, `performance/effective_variance`, and the runtime breakdown.
 Pass a `maestro_run_<timestamp>` directory to process a specific launch.
+Older runtime-only outputs lack the required metrics and must be moved aside or removed before relaunching, since existing outputs are skipped.
 
 Run `python cleanup.py` to remove generated task outputs, Maestro records, processed results, and `study.yaml`.
 

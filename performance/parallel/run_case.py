@@ -50,7 +50,7 @@ command = [
     f"--output={output}",
     "--no-progress_bar",
     "--caching",
-    "--runtime_output",
+    "--no-tally_output",
 ]
 
 print("=" * 80)

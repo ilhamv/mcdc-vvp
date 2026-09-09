@@ -1,7 +1,6 @@
 """Process serial runtimes and generate case performance figures."""
 
 import argparse
-import ast
 import csv
 import shutil
 from pathlib import Path
@@ -23,28 +22,28 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-def input_batch_count(input_file):
-    """Read the single positive N_batch assignment from an input file."""
-    tree = ast.parse(input_file.read_text(), filename=str(input_file))
-    values = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign):
-            continue
-        for target in node.targets:
-            if isinstance(target, ast.Attribute) and target.attr == "N_batch":
-                values.append(ast.literal_eval(node.value))
-    if len(values) != 1 or isinstance(values[0], bool) or values[0] <= 0:
-        raise ValueError(f"Could not determine one positive N_batch from {input_file}.")
-    return int(values[0])
-
-
-def total_runtime(output_file):
-    """Return the total runtime stored in one runtime-only output."""
+def performance_metrics(output_file):
+    """Read measured performance and settings from one MC/DC output."""
     with h5py.File(output_file, "r") as output:
-        runtime = float(output["runtime/total"][0])
-    if runtime <= 0.0:
+        if "performance" not in output:
+            raise ValueError(
+                f"Missing performance metrics in {output_file}; rerun with the updated MC/DC."
+            )
+        metrics = {
+            "runtime": float(output["performance/runtime"][()]),
+            "N_history": int(output["performance/N_history"][()]),
+            "N_rank": int(output["performance/N_rank"][()]),
+            "effective_variance": float(output["performance/effective_variance"][()]),
+            "N_particle": int(output["settings/N_particle"][()]),
+            "N_batch": int(output["settings/N_batch"][()]),
+        }
+    if not np.isfinite(metrics["runtime"]) or metrics["runtime"] <= 0.0:
         raise ValueError(f"Invalid total runtime in {output_file}.")
-    return runtime
+    if metrics["N_history"] <= 0 or metrics["N_rank"] != 1:
+        raise ValueError(
+            f"Expected positive histories and one MPI rank in {output_file}."
+        )
+    return metrics
 
 
 def add_series(axis, histories, python, numba, numba_without_compilation):
@@ -118,8 +117,6 @@ shutil.copy2(task_file, results_dir / "task.yaml")
 processed_cases = 0
 for case_name, task in tasks.items():
     case_dir = suite_dir / "cases" / case_name
-    input_file = case_dir / "input.py"
-    N_batch = input_batch_count(input_file)
     records = []
 
     for N_particle in particle_counts(
@@ -139,16 +136,25 @@ for case_name, task in tasks.items():
             )
             continue
 
-        N_history = N_particle * N_batch
-        records.append(
-            {
-                "N_particle": N_particle,
-                "N_batch": N_batch,
-                "N_history": N_history,
-                "runtime_python": total_runtime(output_files["python"]),
-                "runtime_numba": total_runtime(output_files["numba"]),
-            }
-        )
+        metrics = {
+            mode: performance_metrics(path) for mode, path in output_files.items()
+        }
+        for mode in MODES:
+            if metrics[mode]["N_particle"] != N_particle:
+                raise ValueError(f"Particle count mismatch in {output_files[mode]}.")
+        for key in ("N_batch", "N_history", "N_rank"):
+            if metrics["python"][key] != metrics["numba"][key]:
+                raise ValueError(
+                    f"Mismatched {key} between Python and Numba for {case_name}, N={N_particle}."
+                )
+        record = {
+            key: metrics["python"][key]
+            for key in ("N_particle", "N_batch", "N_history", "N_rank")
+        }
+        for mode in MODES:
+            record[f"runtime_{mode}"] = metrics[mode]["runtime"]
+            record[f"effective_variance_{mode}"] = metrics[mode]["effective_variance"]
+        records.append(record)
 
     if len(records) < 3:
         print(f"Skip incomplete case: {case_name}; fewer than three paired points.")

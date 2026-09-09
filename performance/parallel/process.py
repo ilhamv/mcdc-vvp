@@ -1,7 +1,7 @@
 """Collect parallel runs and generate scaling tables and figures."""
 
 import argparse
-import ast
+import math
 import csv
 import shutil
 from collections import defaultdict
@@ -24,22 +24,8 @@ args = parser.parse_args()
 suite_dir = Path(__file__).resolve().parent
 
 
-def input_batch_count(input_file):
-    tree = ast.parse(input_file.read_text(), filename=str(input_file))
-    values = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.Assign):
-            continue
-        for target in node.targets:
-            if isinstance(target, ast.Attribute) and target.attr == "N_batch":
-                values.append(ast.literal_eval(node.value))
-    if len(values) != 1 or isinstance(values[0], bool) or values[0] <= 0:
-        raise ValueError(f"Could not determine one positive N_batch from {input_file}.")
-    return int(values[0])
-
-
 def runtime_value(runtime, name):
-    return float(runtime[name][()]) if name in runtime else float("nan")
+    return float(runtime[name][()].item()) if name in runtime else float("nan")
 
 
 if args.maestro_run is None:
@@ -70,14 +56,19 @@ tasks = performance_tasks(task_config, launch_config["N_node_max"])
 records = []
 for task in tasks:
     case_dir = case_directory(suite_dir, task)
-    input_file = case_dir / "input.py"
     output_file = case_dir / f"{output_name(task)}.h5"
     if not output_file.is_file():
         print(f"Skip incomplete task: {task['name']}")
         continue
 
-    N_batch = input_batch_count(input_file)
     with h5py.File(output_file, "r") as output:
+        if "performance" not in output:
+            raise ValueError(
+                f"Missing performance metrics in {output_file}; rerun with the updated MC/DC."
+            )
+        performance = output["performance"]
+        if int(output["settings/N_particle"][()]) != task["N_particle"]:
+            raise ValueError(f"Particle count mismatch in {output_file}.")
         runtime = output["runtime"]
         record = {
             key: task[key]
@@ -93,17 +84,21 @@ for task in tasks:
             )
         }
         record.update(
-            N_batch=N_batch,
-            N_history=task["N_particle"] * N_batch,
-            runtime_total=runtime_value(runtime, "total"),
+            N_batch=int(output["settings/N_batch"][()]),
+            N_history=int(performance["N_history"][()]),
+            N_rank=int(performance["N_rank"][()]),
+            effective_variance=float(performance["effective_variance"][()]),
+            runtime_total=float(performance["runtime"][()]),
             runtime_preparation=runtime_value(runtime, "preparation"),
             runtime_simulation=runtime_value(runtime, "simulation"),
             runtime_output=runtime_value(runtime, "output"),
             runtime_bank_management=runtime_value(runtime, "bank_management"),
         )
-    if record["runtime_simulation"] <= 0:
-        raise ValueError(f"Invalid simulation runtime in {output_file}.")
-    record["tracking_rate"] = record["N_history"] / record["runtime_simulation"]
+    if not math.isfinite(record["runtime_total"]) or record["runtime_total"] <= 0:
+        raise ValueError(f"Invalid total runtime in {output_file}.")
+    if record["N_history"] <= 0 or record["N_rank"] <= 0:
+        raise ValueError(f"Invalid history or rank count in {output_file}.")
+    record["tracking_rate"] = record["N_history"] / record["runtime_total"]
     record["tracking_rate_per_node"] = record["tracking_rate"] / record["N_node"]
     records.append(record)
 
@@ -161,10 +156,10 @@ for (problem, method), case_records in groups.items():
         by_multiplier[record["workload_multiplier"]].append(record)
     for multiplier, group in sorted(by_multiplier.items()):
         group.sort(key=lambda item: item["N_node"])
-        reference_runtime = group[0]["runtime_simulation"]
+        reference_runtime = group[0]["runtime_total"]
         axis.plot(
             [item["N_node"] for item in group],
-            [reference_runtime / item["runtime_simulation"] for item in group],
+            [reference_runtime / item["runtime_total"] for item in group],
             marker="o",
             label=f"m={multiplier}",
         )
@@ -186,8 +181,8 @@ for (problem, method), case_records in groups.items():
         group.sort(key=lambda item: item["N_node"])
         reference = group[0]
         efficiencies = [
-            (reference["runtime_simulation"] * reference["N_node"])
-            / (item["runtime_simulation"] * item["N_node"])
+            (reference["runtime_total"] * reference["N_node"])
+            / (item["runtime_total"] * item["N_node"])
             for item in group
         ]
         axis.plot(
