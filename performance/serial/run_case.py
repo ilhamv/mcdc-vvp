@@ -10,6 +10,10 @@ import yaml
 
 from util import output_name, particle_counts, task_modes
 
+# ======================================================================================
+# Command-line arguments
+# ======================================================================================
+
 parser = argparse.ArgumentParser(description="Run one MC/DC serial-performance case.")
 parser.add_argument("--name", required=True, help="Serial-performance case name.")
 parser.add_argument("--task-file", default="task.yaml")
@@ -21,12 +25,20 @@ parser.add_argument(
 args = parser.parse_args()
 
 
+# ======================================================================================
+# Paths
+# ======================================================================================
+
 suite_dir = Path(__file__).resolve().parent
 case_dir = suite_dir / "cases" / args.name
 task_file = suite_dir / args.task_file
 
 if not case_dir.is_dir():
     raise FileNotFoundError(f"Case directory not found: {case_dir}")
+
+# ======================================================================================
+# Load task definition
+# ======================================================================================
 
 with task_file.open("r") as stream:
     tasks = yaml.safe_load(stream)
@@ -35,6 +47,10 @@ if args.name not in tasks:
 task = tasks[args.name]
 modes = task_modes(task)
 
+
+# ======================================================================================
+# Run particle-count tasks
+# ======================================================================================
 
 for N_particle in particle_counts(
     task["logN_min"],

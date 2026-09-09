@@ -12,6 +12,7 @@ def task_modes(task):
     python_mode = task.get("python_mode", True)
     if not isinstance(python_mode, bool):
         raise ValueError("python_mode must be a Boolean.")
+    # Keep Numba mandatory; Python adds a comparison without changing the study.
     return MODES if python_mode else ("numba",)
 
 

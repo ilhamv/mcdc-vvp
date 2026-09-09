@@ -8,9 +8,17 @@ from pathlib import Path
 
 import yaml
 
+# ======================================================================================
+# Bootstrap VVP imports
+# ======================================================================================
+
 REPO_DIR = Path(__file__).resolve().parents[2]
 if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
+
+# ======================================================================================
+# Load shared VVP configs
+# ======================================================================================
 
 from configs.platform_config import PLATFORMS
 from configs.util import get_case_walltime
@@ -27,6 +35,10 @@ try:
 except ImportError:
     USER_CONFIG = {}
 
+
+# ======================================================================================
+# Command-line arguments
+# ======================================================================================
 
 parser = argparse.ArgumentParser(
     description="Launch the MC/DC parallel-performance suite."
@@ -46,6 +58,10 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+
+# ======================================================================================
+# Paths and platform settings
+# ======================================================================================
 
 suite_dir = Path(__file__).resolve().parent
 task_file = suite_dir / "task.yaml"
@@ -75,11 +91,20 @@ if account is None and not args.dry_run:
 if account is None:
     account = "UNCONFIGURED"
 
+# ======================================================================================
+# Load tasks
+# ======================================================================================
+
 with task_file.open("r") as stream:
     task_config = yaml.safe_load(stream)
 tasks = performance_tasks(task_config, args.N_node_max)
 
 
+# ======================================================================================
+# Build Maestro study
+# ======================================================================================
+
+# Each case or matrix point becomes one independent Maestro step.
 steps = []
 skipped_tasks = []
 case_walltimes = {}
@@ -148,8 +173,16 @@ if queue is not None:
 if reservation is not None:
     study["batch"]["reservation"] = reservation
 
+# ======================================================================================
+# Write Maestro study
+# ======================================================================================
+
 with study_file.open("w") as stream:
     yaml.dump(study, stream, sort_keys=False)
+
+# ======================================================================================
+# Summary
+# ======================================================================================
 
 print(f"Platform : {args.platform}")
 print(f"Nodes    : 1 through {args.N_node_max} (powers of two)")
@@ -157,9 +190,22 @@ print(f"Procs    : {cpu_cores} per node")
 print(f"Tasks    : {len(steps)}")
 print(f"Skipped  : {len(skipped_tasks)}")
 print(f"Study    : {study_file}")
+print(f"Python   : {mcdc_python}")
+print(f"Scheduler: {platform['scheduler']}")
+print(f"Account  : {account}")
+print(f"Queue    : {queue}")
+print(f"Reserv.  : {reservation}")
+print("Exclusive: True")
+print("Walltimes:")
+for task_name, walltime in case_walltimes.items():
+    print(f"  {task_name}: {walltime}")
 
 if args.dry_run or not steps:
     raise SystemExit(0)
+
+# ======================================================================================
+# Launch Maestro
+# ======================================================================================
 
 maestro_python = user_platform_config.get("maestro_python")
 env = os.environ.copy()
@@ -177,6 +223,11 @@ else:
     ]
 subprocess.run(maestro_command, cwd=suite_dir, check=True, env=env)
 
+# ======================================================================================
+# Store launch metadata
+# ======================================================================================
+
+# Save the effective configuration alongside the generated Maestro run.
 maestro_runs = sorted(
     suite_dir.glob("maestro_run_*"), key=lambda path: path.stat().st_mtime
 )

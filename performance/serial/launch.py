@@ -8,9 +8,17 @@ from pathlib import Path
 
 import yaml
 
+# ======================================================================================
+# Bootstrap VVP imports
+# ======================================================================================
+
 REPO_DIR = Path(__file__).resolve().parents[2]
 if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
+
+# ======================================================================================
+# Load shared VVP configs
+# ======================================================================================
 
 from configs.platform_config import PLATFORMS
 from configs.util import get_case_walltime
@@ -21,6 +29,10 @@ try:
 except ImportError:
     USER_CONFIG = {}
 
+
+# ======================================================================================
+# Command-line arguments
+# ======================================================================================
 
 parser = argparse.ArgumentParser(
     description="Launch the MC/DC serial-performance suite."
@@ -34,6 +46,10 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
+
+# ======================================================================================
+# Paths and platform settings
+# ======================================================================================
 
 suite_dir = Path(__file__).resolve().parent
 task_file = suite_dir / "task.yaml"
@@ -59,10 +75,19 @@ if not local:
             "Create configs/user_config.py from configs/user_config.py.template."
         )
 
+# ======================================================================================
+# Load tasks
+# ======================================================================================
+
 with task_file.open("r") as stream:
     tasks = yaml.safe_load(stream)
 
 
+# ======================================================================================
+# Build Maestro study
+# ======================================================================================
+
+# Each case or matrix point becomes one independent Maestro step.
 steps = []
 case_walltimes = {}
 skipped_cases = []
@@ -120,8 +145,16 @@ if not local:
         batch["reservation"] = reservation
     study["batch"] = batch
 
+# ======================================================================================
+# Write Maestro study
+# ======================================================================================
+
 with study_file.open("w") as stream:
     yaml.dump(study, stream, sort_keys=False)
+
+# ======================================================================================
+# Launch Maestro
+# ======================================================================================
 
 maestro_python = None if local else user_platform_config.get("maestro_python")
 env = os.environ.copy()
@@ -139,6 +172,11 @@ else:
     ]
 subprocess.run(maestro_command, cwd=suite_dir, check=True, env=env)
 
+# ======================================================================================
+# Store launch metadata
+# ======================================================================================
+
+# Save the effective configuration alongside the generated Maestro run.
 maestro_runs = sorted(
     suite_dir.glob("maestro_run_*"), key=lambda path: path.stat().st_mtime
 )
@@ -162,6 +200,10 @@ with task_file.open("r") as stream:
 with (latest_run / "task.yaml").open("w") as stream:
     yaml.dump(task_config, stream, sort_keys=False)
 
+# ======================================================================================
+# Summary
+# ======================================================================================
+
 print(f"Platform : {args.platform}")
 print("Nodes    : 1")
 print("Procs    : 1")
@@ -169,3 +211,13 @@ print(f"Python   : {mcdc_python}")
 print(f"Cases    : {len(steps)}")
 print(f"Skipped  : {len(skipped_cases)}")
 print(f"Study    : {study_file}")
+
+if not local:
+    print(f"Scheduler: {platform['scheduler']}")
+    print(f"Account  : {account}")
+    print(f"Queue    : {queue}")
+    print(f"Reserv.  : {reservation}")
+    print("Exclusive: True")
+    print("Walltimes:")
+    for case_name, walltime in case_walltimes.items():
+        print(f"  {case_name}: {walltime}")
