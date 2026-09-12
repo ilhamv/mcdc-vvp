@@ -15,7 +15,7 @@ Workflow orchestration is performed using [Maestro](https://github.com/llnl/maes
 ```text
 configs/               Shared platform, user, and launch configurations
 verification/          Verification suites and their cases
-performance/           Parallel and serial performance suites
+performance/           Performance test suites and their cases
 results/               Processed results organized by suite
 release/               Flattened figures prepared as release assets
 

@@ -1,15 +1,15 @@
 LAUNCH_CONFIG = {
     "verification/analytical/neutron/fixed_source": {
         "enabled": False,
-        "platform": None,
+        "platform": "dane",
         "N_node": 1,
-        "walltime": None,
+        "walltime": 0.6,
     },
     "verification/analytical/neutron/k_eigenvalue": {
         "enabled": False,
-        "platform": None,
+        "platform": "dane",
         "N_node": 1,
-        "walltime": None,
+        "walltime": 1.0,
     },
     "verification/code_to_code/neutron": {
         "enabled": False,
@@ -19,8 +19,8 @@ LAUNCH_CONFIG = {
     },
     "performance/serial": {
         "enabled": False,
-        "platform": None,
-        "walltime": None,
+        "platform": "dane",
+        "walltime": 15.0,
     },
     "performance/parallel": {
         "enabled": False,
