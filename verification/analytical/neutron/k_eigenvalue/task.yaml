@@ -19,19 +19,19 @@ one_group_slab:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime_factor: 0.20
+  walltime_factor: 0.21
 
 kornreich:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime_factor: 0.20
+  walltime_factor: 0.21
 
 inf_shem361_subcritical:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime_factor: 0.85
+  walltime_factor: 0.86
 
 inf_shem361_supercritical:
   N_active_min: 20
