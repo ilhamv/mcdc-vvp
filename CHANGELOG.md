@@ -16,6 +16,7 @@ Target release: 0.16.0, the first versioned MC/DC-VVP release.
 - Add energy-dependent weight-window and time-census variants of the infinite homogeneous SHEM-361 problem, from [@ilhamv]
 - Add AZURV1 variants for basic variance-reduction techniques, analytical spatial weight windows, time censuses, and census-based tallies, from [@ilhamv]
 - Add a neutron code-to-code verification suite for the C5G7 four-phase and Kobayashi dog-leg transients, including archived participating-code data, fixed largest-sample references, convergence metrics, and animated reference, comparison, and difference results, from [@ilhamv]
+- Add the `kobayashi-detector` neutron code-to-code verification, from [@ilhamv]
 - Add preliminary SINBAD model scaffolds for OKTAVIAN Si-60, FNG SiC, FNG/TUD SiC, and RFNC photon-compound experiments based on their public benchmark entries, from [@ilhamv]
 - Add top-level and suite-level READMEs describing layouts, configuration, launching, processing, cases, and references, from [@ilhamv]
 - Add shared platform, user, and launch configuration for local and HPC campaigns, from [@ilhamv]
