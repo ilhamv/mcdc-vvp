@@ -1,4 +1,4 @@
-"""Process serial runtimes and generate case performance figures."""
+"""Process serial runtime and precision metrics and generate performance figures."""
 
 import argparse
 import csv
@@ -46,13 +46,14 @@ def performance_metrics(output_file):
     return metrics
 
 
-def add_series(axis, histories, python, numba, numba_without_compilation):
+def add_series(axis, histories, python, numba, numba_without_compilation=None):
     """Add Numba series and the Python series when enabled."""
     axis.plot(
         histories,
         numba,
-        color="blue",
+        color="#0072B2",
         linestyle="-",
+        linewidth=2.0,
         marker="o",
         markerfacecolor="none",
         label="Numba",
@@ -61,18 +62,21 @@ def add_series(axis, histories, python, numba, numba_without_compilation):
         axis.plot(
             histories,
             python,
-            color="red",
+            color="#D55E00",
             linestyle="--",
+            linewidth=2.0,
             marker="x",
             label="Python",
         )
-    axis.plot(
-        histories,
-        numba_without_compilation,
-        color="yellow",
-        linestyle=":",
-        label="Numba (w/o compilation)",
-    )
+    if numba_without_compilation is not None:
+        axis.plot(
+            histories,
+            numba_without_compilation,
+            color="#882255",
+            linestyle=":",
+            linewidth=2.0,
+            label="Numba (w/o compilation)",
+        )
 
 
 def save_figure(figure, path):
@@ -175,10 +179,31 @@ for case_name, task in tasks.items():
             record[f"tracking_rate_{mode}"] = (
                 record["N_history"] / record[f"runtime_{mode}"]
             )
+            variance = record[f"effective_variance_{mode}"]
+            if np.isfinite(variance) and variance > 0.0:
+                # MC/DC stores fractional relative variance; report precision in %^-2.
+                precision = 1.0e-4 / variance
+            else:
+                # Undefined or nonpositive variance cannot give a finite precision.
+                precision = float("nan")
+                print(
+                    f"Omit precision metrics: {case_name}, {mode}, "
+                    f"N={record['N_history']}, invalid effective variance {variance}"
+                )
+            record[f"precision_{mode}"] = precision
+            record[f"precision_rate_{mode}"] = precision / record["N_history"]
+            # With V in percent squared, FOM = (N / T) * (1 / (V * N)).
+            record[f"fom_{mode}"] = (
+                record[f"tracking_rate_{mode}"] * record[f"precision_rate_{mode}"]
+            )
         record["tracking_rate_numba_without_compilation"] = (
             record["N_history"] / adjusted_runtime
             if adjusted_runtime > 0.0
             else float("nan")
+        )
+        record["fom_numba_without_compilation"] = (
+            record["tracking_rate_numba_without_compilation"]
+            * record["precision_rate_numba"]
         )
         record["estimated_compilation_time"] = compilation_time
 
@@ -256,6 +281,64 @@ for case_name, task in tasks.items():
     axis.grid(True, which="both", alpha=0.3)
     axis.legend()
     save_figure(figure, destination / "tracking_rate.png")
+
+    # Precision depends only on variance and histories; only FOM uses runtime.
+    for metric, title, ylabel in (
+        ("precision", "precision", r"Precision, $1/V_{\%}$ [$\%^{-2}$]"),
+        (
+            "precision_rate",
+            "precision rate",
+            r"Precision rate, $1/(V_{\%}N)$ [$\%^{-2}$ history$^{-1}$]",
+        ),
+        ("fom", "figure of merit", r"FOM, $1/(TV_{\%})$ [$\%^{-2}$ s$^{-1}$]"),
+    ):
+        python = (
+            [record[f"{metric}_python"] for record in records]
+            if "python" in modes
+            else None
+        )
+        numba = [record[f"{metric}_numba"] for record in records]
+        adjusted = (
+            [record["fom_numba_without_compilation"] for record in records]
+            if metric == "fom"
+            else None
+        )
+        figure, axis = plt.subplots(figsize=(7.2, 4.8))
+        add_series(axis, histories, python, numba, adjusted)
+        if metric == "fom":
+            axis.text(
+                0.03,
+                0.97,
+                f"Estimated compilation time: {compilation_time:.2f} s",
+                transform=axis.transAxes,
+                horizontalalignment="left",
+                verticalalignment="top",
+                bbox={"facecolor": "white", "edgecolor": "black", "alpha": 0.8},
+            )
+        axis.set_xscale("log")
+        axis.set_yscale("log")
+        if not any(
+            np.any(np.isfinite(values) & (np.asarray(values) > 0.0))
+            for values in (python, numba, adjusted)
+            if values is not None
+        ):
+            # An entirely unavailable metric still gets an explicitly empty figure.
+            axis.set_ylim(0.1, 10.0)
+            axis.text(
+                0.5,
+                0.5,
+                "No finite positive values",
+                transform=axis.transAxes,
+                horizontalalignment="center",
+            )
+        axis.set(
+            xlabel=r"Number of histories, $N$",
+            ylabel=ylabel,
+            title=f"{case_name}: serial {title}",
+        )
+        axis.grid(True, which="both", alpha=0.3)
+        axis.legend()
+        save_figure(figure, destination / f"{metric}.png")
     processed_cases += 1
 
 if processed_cases == 0:
