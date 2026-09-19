@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 
-from util import output_name, particle_counts, task_modes
+from util import output_name, task_particle_counts, task_modes
 
 parser = argparse.ArgumentParser(description="Process the serial-performance suite.")
 parser.add_argument(
@@ -46,36 +46,25 @@ def performance_metrics(output_file):
     return metrics
 
 
-def add_series(axis, histories, python, numba, numba_without_compilation=None):
-    """Add Numba series and the Python series when enabled."""
-    axis.plot(
-        histories,
-        numba,
-        color="#0072B2",
-        linestyle="-",
-        linewidth=2.0,
-        marker="o",
-        markerfacecolor="none",
-        label="Numba",
-    )
-    if python is not None:
+def add_series(axis, records, metric):
+    """Plot each mode using its own available history counts."""
+    for mode, color, linestyle, marker, label in (
+        ("numba", "#0072B2", "-", "o", "Numba"),
+        ("python", "#D55E00", "--", "x", "Python"),
+    ):
+        key = f"{metric}_{mode}"
+        points = [record for record in records if key in record]
+        if not points:
+            continue
         axis.plot(
-            histories,
-            python,
-            color="#D55E00",
-            linestyle="--",
+            [record["N_history"] for record in points],
+            [record[key] for record in points],
+            color=color,
+            linestyle=linestyle,
             linewidth=2.0,
-            marker="x",
-            label="Python",
-        )
-    if numba_without_compilation is not None:
-        axis.plot(
-            histories,
-            numba_without_compilation,
-            color="#882255",
-            linestyle=":",
-            linewidth=2.0,
-            label="Numba (w/o compilation)",
+            marker=marker,
+            markerfacecolor="none",
+            label=label,
         )
 
 
@@ -111,6 +100,11 @@ with launch_config_file.open("r") as stream:
 with task_file.open("r") as stream:
     tasks = yaml.safe_load(stream)
 
+# Validate saved mode configurations before replacing existing results.
+for task in tasks.values():
+    for mode in task_modes(task):
+        task_particle_counts(task, mode)
+
 results_dir = suite_dir / "results"
 if results_dir.is_dir():
     shutil.rmtree(results_dir)
@@ -123,59 +117,45 @@ processed_cases = 0
 for case_name, task in tasks.items():
     modes = task_modes(task)
     case_dir = suite_dir / "cases" / case_name
-    records = []
+    records_by_particle = {}
 
-    for N_particle in particle_counts(
-        task["logN_min"],
-        task["logN_max"],
-        task["N_task"],
-    ):
-        N_particle = int(N_particle)
-        output_files = {
-            mode: case_dir / f"{output_name(mode, N_particle)}.h5" for mode in modes
-        }
-        missing = [mode for mode, path in output_files.items() if not path.is_file()]
-        if missing:
-            print(
-                f"Skip incomplete point: {case_name}, N={N_particle}, "
-                f"missing {', '.join(missing)}"
+    for mode in modes:
+        for N_particle in task_particle_counts(task, mode):
+            N_particle = int(N_particle)
+            output_file = case_dir / f"{output_name(mode, N_particle)}.h5"
+            if not output_file.is_file():
+                print(f"Skip incomplete point: {case_name}, {mode}, N={N_particle}")
+                continue
+            metrics = performance_metrics(output_file)
+            if metrics["N_particle"] != N_particle:
+                raise ValueError(f"Particle count mismatch in {output_file}.")
+            record = records_by_particle.setdefault(
+                N_particle,
+                {
+                    key: metrics[key]
+                    for key in ("N_particle", "N_batch", "N_history", "N_rank")
+                },
             )
-            continue
+            # Only overlapping points need cross-mode consistency checks.
+            for key in ("N_batch", "N_history", "N_rank"):
+                if record[key] != metrics[key]:
+                    raise ValueError(
+                        f"Mismatched {key} between modes for {case_name}, N={N_particle}."
+                    )
+            record[f"runtime_{mode}"] = metrics["runtime"]
+            record[f"effective_variance_{mode}"] = metrics["effective_variance"]
 
-        metrics = {
-            mode: performance_metrics(path) for mode, path in output_files.items()
-        }
-        for mode in modes:
-            if metrics[mode]["N_particle"] != N_particle:
-                raise ValueError(f"Particle count mismatch in {output_files[mode]}.")
-        for key in ("N_batch", "N_history", "N_rank"):
-            if any(metrics[mode][key] != metrics["numba"][key] for mode in modes):
-                raise ValueError(
-                    f"Mismatched {key} between Python and Numba for {case_name}, N={N_particle}."
-                )
-        record = {
-            key: metrics["numba"][key]
-            for key in ("N_particle", "N_batch", "N_history", "N_rank")
-        }
-        for mode in modes:
-            record[f"runtime_{mode}"] = metrics[mode]["runtime"]
-            record[f"effective_variance_{mode}"] = metrics[mode]["effective_variance"]
-        records.append(record)
-
-    if len(records) < 3:
-        print(f"Skip incomplete case: {case_name}; fewer than three complete points.")
+    records = sorted(
+        records_by_particle.values(), key=lambda record: record["N_history"]
+    )
+    if not records:
+        print(f"Skip incomplete case: {case_name}; no complete points.")
         continue
 
-    records.sort(key=lambda record: record["N_history"])
-    compilation_time = float(
-        np.median([record["runtime_numba"] for record in records[:3]])
-    )
     for record in records:
-        adjusted_runtime = record["runtime_numba"] - compilation_time
-        record["runtime_numba_without_compilation"] = (
-            adjusted_runtime if adjusted_runtime > 0.0 else float("nan")
-        )
         for mode in modes:
+            if f"runtime_{mode}" not in record:
+                continue
             record[f"tracking_rate_{mode}"] = (
                 record["N_history"] / record[f"runtime_{mode}"]
             )
@@ -196,94 +176,18 @@ for case_name, task in tasks.items():
             record[f"fom_{mode}"] = (
                 record[f"tracking_rate_{mode}"] * record[f"precision_rate_{mode}"]
             )
-        record["tracking_rate_numba_without_compilation"] = (
-            record["N_history"] / adjusted_runtime
-            if adjusted_runtime > 0.0
-            else float("nan")
-        )
-        record["fom_numba_without_compilation"] = (
-            record["tracking_rate_numba_without_compilation"]
-            * record["precision_rate_numba"]
-        )
-        record["estimated_compilation_time"] = compilation_time
 
     destination = results_dir / case_name
     destination.mkdir()
     with (destination / "records.csv").open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=list(records[0]))
+        fieldnames = list(dict.fromkeys(key for record in records for key in record))
+        writer = csv.DictWriter(stream, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(records)
 
-    histories = [record["N_history"] for record in records]
-    runtime_python = (
-        [record["runtime_python"] for record in records] if "python" in modes else None
-    )
-    runtime_numba = [record["runtime_numba"] for record in records]
-    runtime_adjusted = [
-        record["runtime_numba_without_compilation"] for record in records
-    ]
-
-    figure, axis = plt.subplots(figsize=(7.2, 4.8))
-    add_series(axis, histories, runtime_python, runtime_numba, runtime_adjusted)
-    axis.axhline(
-        compilation_time,
-        color="black",
-        linestyle="-",
-        label="Compilation time",
-    )
-    axis.text(
-        0.03,
-        0.97,
-        f"Estimated compilation time: {compilation_time:.2f} s",
-        transform=axis.transAxes,
-        horizontalalignment="left",
-        verticalalignment="top",
-        bbox={"facecolor": "white", "edgecolor": "black", "alpha": 0.8},
-    )
-    axis.set_xscale("log")
-    axis.set_yscale("log")
-    axis.set(
-        xlabel=r"Number of histories, $N$",
-        ylabel=r"Runtime, $T$ [s]",
-        title=f"{case_name}: serial runtime",
-    )
-    axis.grid(True, which="both", alpha=0.3)
-    axis.legend()
-    save_figure(figure, destination / "runtime.png")
-
-    tracking_python = (
-        [record["tracking_rate_python"] for record in records]
-        if "python" in modes
-        else None
-    )
-    tracking_numba = [record["tracking_rate_numba"] for record in records]
-    tracking_adjusted = [
-        record["tracking_rate_numba_without_compilation"] for record in records
-    ]
-    figure, axis = plt.subplots(figsize=(7.2, 4.8))
-    add_series(axis, histories, tracking_python, tracking_numba, tracking_adjusted)
-    axis.text(
-        0.03,
-        0.97,
-        f"Estimated compilation time: {compilation_time:.2f} s",
-        transform=axis.transAxes,
-        horizontalalignment="left",
-        verticalalignment="top",
-        bbox={"facecolor": "white", "edgecolor": "black", "alpha": 0.8},
-    )
-    axis.set_xscale("log")
-    axis.set_yscale("log")
-    axis.set(
-        xlabel=r"Number of histories, $N$",
-        ylabel=r"Tracking rate, $T_r$ [histories/s]",
-        title=f"{case_name}: serial tracking rate",
-    )
-    axis.grid(True, which="both", alpha=0.3)
-    axis.legend()
-    save_figure(figure, destination / "tracking_rate.png")
-
-    # Precision depends only on variance and histories; only FOM uses runtime.
     for metric, title, ylabel in (
+        ("runtime", "runtime", r"Runtime, $T$ [s]"),
+        ("tracking_rate", "tracking rate", r"Tracking rate, $T_r$ [histories/s]"),
         ("precision", "precision", r"Precision, $1/V_{\%}$ [$\%^{-2}$]"),
         (
             "precision_rate",
@@ -292,35 +196,15 @@ for case_name, task in tasks.items():
         ),
         ("fom", "figure of merit", r"FOM, $1/(TV_{\%})$ [$\%^{-2}$ s$^{-1}$]"),
     ):
-        python = (
-            [record[f"{metric}_python"] for record in records]
-            if "python" in modes
-            else None
-        )
-        numba = [record[f"{metric}_numba"] for record in records]
-        adjusted = (
-            [record["fom_numba_without_compilation"] for record in records]
-            if metric == "fom"
-            else None
-        )
         figure, axis = plt.subplots(figsize=(7.2, 4.8))
-        add_series(axis, histories, python, numba, adjusted)
-        if metric == "fom":
-            axis.text(
-                0.03,
-                0.97,
-                f"Estimated compilation time: {compilation_time:.2f} s",
-                transform=axis.transAxes,
-                horizontalalignment="left",
-                verticalalignment="top",
-                bbox={"facecolor": "white", "edgecolor": "black", "alpha": 0.8},
-            )
+        add_series(axis, records, metric)
         axis.set_xscale("log")
         axis.set_yscale("log")
         if not any(
-            np.any(np.isfinite(values) & (np.asarray(values) > 0.0))
-            for values in (python, numba, adjusted)
-            if values is not None
+            np.isfinite(record.get(f"{metric}_{mode}", np.nan))
+            and record[f"{metric}_{mode}"] > 0.0
+            for record in records
+            for mode in modes
         ):
             # An entirely unavailable metric still gets an explicitly empty figure.
             axis.set_ylim(0.1, 10.0)

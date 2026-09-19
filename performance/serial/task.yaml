@@ -1,6 +1,11 @@
 kobayashi-detector:
-  python_mode: True
-  logN_min: 1
-  logN_max: 5
-  N_task: 9
-  walltime_factor: 1.0
+  numba:
+    logN_min: 1
+    logN_max: 6
+    N_task: 11
+    walltime_factor: 1.0
+  python:
+    logN_min: 1
+    logN_max: 4
+    N_task: 7
+    walltime_factor: 1.0

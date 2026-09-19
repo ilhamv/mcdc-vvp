@@ -1,6 +1,6 @@
 # Serial Performance
 
-This suite measures MC/DC runtime, tracking rate, precision, precision rate, and figure of merit in Numba mode, optionally comparing Python mode, using one process.
+This suite measures MC/DC runtime, tracking rate, precision, precision rate, and figure of merit in the configured Numba and/or Python modes, using one process per job.
 It can run locally or on one exclusive cluster node through the top-level MC/DC-VVP workflow.
 
 ## Directory layout
@@ -18,7 +18,7 @@ task.yaml           Configure the particle-count study for each case
 study.yaml          Generated Maestro study definition
 
 launch.py           Build and launch the Maestro study
-run_case.py         Run one case in its enabled execution modes
+run_case.py         Run one case in one execution mode
 process.py          Generate runtime, precision, and figure-of-merit results
 
 cleanup.py          Remove generated outputs and results
@@ -27,21 +27,37 @@ util.py             Provide shared task-generation utilities
 
 ## Configuration
 
-Each `task.yaml` entry defines logarithmic particle-count bounds, the number of sampling points, and a walltime factor.
-Each case is one Maestro step that runs its sampling points and enabled execution modes sequentially.
-The launch-level `--walltime` is specified in hours and multiplied by each case's `walltime_factor`.
+Each case in `task.yaml` contains a `numba` block, a `python` block, or both.
+Each mode block defines its own logarithmic particle-count bounds, number of sampling points, and walltime factor.
+Each case-mode pair is an independent Maestro step that runs only that mode's sampling points sequentially.
+Numba and Python jobs have no dependency on each other and can be scheduled independently.
+The launch-level `--walltime` is specified in hours and multiplied by each mode's `walltime_factor`.
 The result is rounded up to the scheduler resolution and capped at the platform maximum.
 When `--walltime` is omitted, the platform maximum is used as the base; local runs ignore walltime.
-For example, `--walltime 1.0` requests six hours for C5G7 and one hour for Kobayashi with the current task settings.
+For example, `--walltime 1.0` and a mode's `walltime_factor: 0.5` request 30 minutes for that job.
 The input file defines settings such as `N_batch`; processing reads the actual settings and total history count from each output.
 
-Each sampling point runs once in Numba mode.
-Set `python_mode: true` in a case's `task.yaml` entry to also run Python mode, or `python_mode: false` for Numba only.
-When omitted, `python_mode` defaults to `true`.
+Only modes with a task block are enabled; omit `python` for Numba-only runs.
+For example, this case launches separate jobs with 11 Numba points and seven Python points:
+
+```yaml
+kobayashi-detector:
+  numba:
+    logN_min: 1
+    logN_max: 6
+    N_task: 11
+    walltime_factor: 1.0
+  python:
+    logN_min: 1
+    logN_max: 4
+    N_task: 7
+    walltime_factor: 1.0
+```
+
 Every run uses `--no-tally_output`, retaining standard metadata, runtime details, and the `performance/` group without saving tally results.
 Output names encode the mode and particle count, for example `output_numba_10000.h5`.
 Numba caching remains disabled so every Numba measurement includes compilation.
-Cluster execution requests one process on one exclusive node.
+Each cluster job requests one process on one exclusive node.
 HPC runs use the shared platform settings in `configs/platform_config.py` and user-specific account, queue, reservation, and Python paths in `configs/user_config.py`.
 The C5G7 input uses the shared cross sections in `data/MGXS-C5G7.h5`.
 
@@ -59,9 +75,11 @@ Launch on a supported cluster:
 python launch.py --platform dane --walltime 1.0
 ```
 
-Completed mode and particle-count outputs are skipped on relaunch, and case completion requires only the enabled modes.
+Completed mode and particle-count outputs are skipped on relaunch, and each case-mode job is skipped independently when all of its outputs exist.
 Run `python process.py` after the jobs finish.
 Pass a `maestro_run_<timestamp>` directory to process a specific launch.
+Processing uses that run's saved `task.yaml`, not the current suite-level file.
+Older saved task files using shared bounds or `python_mode` must be converted to the nested mode-block format before processing.
 
 For each case, processing creates `records.csv` and five log-log plots against total histories, $N$.
 The plots are `runtime.png`, `tracking_rate.png`, `precision.png`, `precision_rate.png`, and `fom.png`.
@@ -75,13 +93,13 @@ Effective variance comes from `performance/effective_variance`.
 The CSV records all derived metrics, `performance/N_rank`, and the unchanged fractional effective variance for each execution mode.
 Nonfinite or nonpositive effective variances are reported and their derived precision, precision-rate, and FOM values are recorded as `nan` and omitted from the plots.
 If a metric has no finite positive values, its plot displays an explanatory message instead of a curve.
-When Python mode is enabled, paired outputs must have matching history and batch counts and exactly one MPI rank.
-Numba-only cases do not require Python outputs and omit Python columns and curves from the results.
-The Numba compilation time is estimated as the median of the three smallest-history Numba runtimes.
-The compilation-adjusted Numba series subtracts that estimate from each Numba runtime.
-Runtime, tracking-rate, and FOM plots include this adjusted series; precision and precision rate do not depend on runtime.
-Nonpositive compilation-adjusted runtimes and their derived tracking rates and FOM values are recorded as `nan` and omitted from the plots.
-Numba uses a solid blue line with hollow circles, Python uses a dashed vermilion line with crosses, and compilation-adjusted Numba uses a dotted dark-purple line.
+Each mode is processed independently using its own particle-count grid, so a missing output in one mode does not discard the other mode's point.
+Overlapping particle-count points must have matching history and batch counts, and every output must have exactly one MPI rank.
+Each curve uses its own history counts; CSV rows cover the union of available particle counts, with blank mode-specific fields where no measurement exists.
+Modes with no available outputs are omitted from the curves and CSV columns.
+All runtime-dependent metrics use the measured total runtime without subtracting compilation time or other overhead.
+Processing requires at least one available sampling point in any configured mode.
+Numba uses a solid blue line with hollow circles, and Python uses a dashed vermilion line with crosses.
 
 Run `python cleanup.py` to remove generated outputs, Maestro records, processed results, and `study.yaml`.
 The study file is untracked and regenerated by `launch.py` for the selected platform.

@@ -22,7 +22,7 @@ if str(REPO_DIR) not in sys.path:
 
 from configs.platform_config import PLATFORMS
 from configs.util import get_case_walltime
-from util import case_outputs_complete, particle_counts, task_modes
+from util import case_outputs_complete, task_modes
 
 try:
     from configs.user_config import USER_CONFIG
@@ -42,7 +42,7 @@ parser.add_argument(
     "--walltime",
     type=float,
     default=None,
-    help="Set the base walltime in hours; each case scales it by walltime_factor.",
+    help="Set the base walltime in hours; each mode scales it by walltime_factor.",
 )
 args = parser.parse_args()
 
@@ -87,39 +87,40 @@ with task_file.open("r") as stream:
 # Build Maestro study
 # ======================================================================================
 
-# Each case or matrix point becomes one independent Maestro step.
+# Each case and execution mode becomes one independent Maestro step.
 steps = []
 case_walltimes = {}
-skipped_cases = []
+skipped_tasks = []
 for case_name, task in tasks.items():
     case_dir = suite_dir / "cases" / case_name
     input_file = case_dir / "input.py"
     if not input_file.is_file():
         raise FileNotFoundError(f"Serial-performance input not found: {input_file}")
 
-    counts = particle_counts(task["logN_min"], task["logN_max"], task["N_task"])
-    if case_outputs_complete(case_dir, counts, task_modes(task)):
-        skipped_cases.append(case_name)
-        print(f"Skip complete case: {case_name}")
-        continue
+    for mode in task_modes(task):
+        step_name = f"{case_name.replace('-', '_')}_{mode}"
+        if case_outputs_complete(case_dir, task, mode):
+            skipped_tasks.append(step_name)
+            print(f"Skip complete case and mode: {case_name}, {mode}")
+            continue
 
-    command = f"{mcdc_python} {run_case} --name {case_name}"
-    if not local:
-        command += ' --launcher "$(LAUNCHER)"'
+        command = f"{mcdc_python} {run_case} --name {case_name} --mode {mode}"
+        if not local:
+            command += ' --launcher "$(LAUNCHER)"'
 
-    run = {"cmd": command}
-    if not local:
-        walltime = get_case_walltime(task, platform, args.walltime)
-        case_walltimes[case_name] = walltime
-        run.update(nodes=1, procs=1, walltime=walltime, exclusive=True)
+        run = {"cmd": command}
+        if not local:
+            walltime = get_case_walltime(task[mode], platform, args.walltime)
+            case_walltimes[step_name] = walltime
+            run.update(nodes=1, procs=1, walltime=walltime, exclusive=True)
 
-    steps.append(
-        {
-            "name": case_name.replace("-", "_"),
-            "description": f"Run serial-performance case: {case_name}",
-            "run": run,
-        }
-    )
+        steps.append(
+            {
+                "name": step_name,
+                "description": f"Run serial-performance case: {case_name}, {mode}",
+                "run": run,
+            }
+        )
 
 if not steps:
     print("All configured cases are complete; nothing to launch.")
@@ -208,8 +209,8 @@ print(f"Platform : {args.platform}")
 print("Nodes    : 1")
 print("Procs    : 1")
 print(f"Python   : {mcdc_python}")
-print(f"Cases    : {len(steps)}")
-print(f"Skipped  : {len(skipped_cases)}")
+print(f"Jobs     : {len(steps)} (one per case and mode)")
+print(f"Skipped  : {len(skipped_tasks)}")
 print(f"Study    : {study_file}")
 
 if not local:
