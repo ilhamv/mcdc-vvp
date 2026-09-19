@@ -13,9 +13,9 @@ LAUNCH_CONFIG = {
     },
     "verification/code_to_code/neutron": {
         "enabled": False,
-        "platform": None,
-        "N_node": 1,
-        "walltime": None,
+        "platform": "dane",
+        "N_node": 10,
+        "walltime": 24.0,
     },
     "performance/serial": {
         "enabled": False,
