@@ -9,7 +9,7 @@ It can run locally or on one exclusive cluster node through the top-level MC/DC-
 cases/              Serial performance case definitions
   <case>/
     input.py         Define and run one MC/DC model
-    output_*.h5      Generated outputs without tally results
+    output_*.h5      Generated outputs including full tally results
 data/               Shared multigroup cross-section data
 maestro_run_*/      Generated Maestro workflow directories
 results/            Processed tables and performance figures
@@ -54,7 +54,7 @@ kobayashi-detector:
     walltime_factor: 1.0
 ```
 
-Every run uses `--no-tally_output`, retaining standard metadata, runtime details, and the `performance/` group without saving tally results.
+Every run saves full tally results, standard metadata, runtime details, and the `performance/` group.
 Output names encode the mode and particle count, for example `output_numba_10000.h5`.
 Numba caching remains disabled so every Numba measurement includes compilation.
 Each cluster job requests one process on one exclusive node.
@@ -85,25 +85,31 @@ For each case, processing creates `records.csv` and five log-log plots against t
 The plots are `runtime.png`, `tracking_rate.png`, `precision.png`, `precision_rate.png`, and `fom.png`.
 The runtime is the total MC/DC runtime, including Numba compilation.
 The tracking rate is the number of histories divided by total runtime.
-MC/DC stores effective variance $V$ using fractional relative errors; the plots and derived CSV metrics use $V_{\%} = 10^4 V$ in percent squared.
-With total runtime $T$, precision is $1/V_{\%}$ in $\%^{-2}$, precision rate is $1/(V_{\%}N)$ in $\%^{-2}$ per history, and figure of merit (FOM) is $1/(TV_{\%})$ in $\%^{-2}$ per second.
-FOM is the product of tracking rate and precision rate: $(N/T)\,[1/(V_{\%}N)] = 1/(TV_{\%})$.
+For each case, the available configured output with the largest total history count supplies the reference tally means for both modes; Numba is preferred on a tie.
+For each run, the maximum relative variance is $V_{\max} = \max_{i:\mu_{i,\mathrm{ref}}\ne 0} (s_i/\mu_{i,\mathrm{ref}})^2$, where $s_i$ is that run's tally standard error (`sdev`).
+The maximum includes all tally scores and bins whose reference mean is nonzero, even if the current run's mean is zero.
+This uses the variance normalized by a fixed reference mean, not the squared difference between the current and reference means.
+Tally scores, shapes, and grids must match the reference.
+The plots and derived CSV metrics use $V_{\%,\max} = 10^4 V_{\max}$ in percent squared.
+With total runtime $T$, precision is $1/V_{\%,\max}$ in $\%^{-2}$, precision rate is $1/(V_{\%,\max}N)$ in $\%^{-2}$ per history, and figure of merit (FOM) is $1/(TV_{\%,\max})$ in $\%^{-2}$ per second.
+FOM is the product of tracking rate and precision rate: $(N/T)\,[1/(V_{\%,\max}N)] = 1/(TV_{\%,\max})$.
 Runtime and history count come from `performance/runtime` and `performance/N_history`.
-Effective variance comes from `performance/effective_variance`.
-The CSV records all derived metrics, `performance/N_rank`, and the unchanged fractional effective variance for each execution mode.
-Nonfinite or nonpositive effective variances are reported and their derived precision, precision-rate, and FOM values are recorded as `nan` and omitted from the plots.
+The CSV records all derived metrics, `performance/N_rank`, the fractional `max_relative_variance_<mode>`, the reference mode and particle/history counts, and `N_reference_nonzero_bin`.
+The unchanged fractional `performance/effective_variance` is retained in the CSV for comparison but is not used for plotting.
+If no reference bins have nonzero means, or the maximum relative variance is nonfinite or nonpositive, derived precision, precision-rate, and FOM values are recorded as `nan` and omitted from the plots.
 If a metric has no finite positive values, its plot displays an explanatory message instead of a curve.
 Each mode is processed independently using its own particle-count grid, so a missing output in one mode does not discard the other mode's point.
 Overlapping particle-count points must have matching history and batch counts, and every output must have exactly one MPI rank.
 Each curve uses its own history counts; CSV rows cover the union of available particle counts, with blank mode-specific fields where no measurement exists.
 Modes with no available outputs are omitted from the curves and CSV columns.
 All runtime-dependent metrics use the measured total runtime without subtracting compilation time or other overhead.
+Runtime now includes full tally output, so older measurements that omitted tally output represent a different workload.
 Processing requires at least one available sampling point in any configured mode.
 Numba uses a solid blue line with hollow circles, and Python uses a dashed vermilion line with crosses.
 
 Run `python cleanup.py` to remove generated outputs, Maestro records, processed results, and `study.yaml`.
 The study file is untracked and regenerated by `launch.py` for the selected platform.
-Older runtime-only outputs lack the required metrics and must be moved aside or removed before relaunching, since existing outputs are skipped.
+Outputs without full tally results are rejected rather than silently reused or overwritten; move them aside before relaunching to regenerate them.
 
 ## Cases
 

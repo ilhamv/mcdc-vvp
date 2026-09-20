@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from util import MODES, output_name, task_particle_counts
+from util import MODES, output_complete, output_name, task_particle_counts
 
 # ======================================================================================
 # Command-line arguments
@@ -57,7 +57,7 @@ for N_particle in task_particle_counts(task, mode):
     N_particle = int(N_particle)
     output = output_name(mode, N_particle)
     output_file = case_dir / f"{output}.h5"
-    if output_file.is_file():
+    if output_complete(output_file):
         print(f"Skip existing output: {args.name}, {mode}, N={N_particle}")
         continue
 
@@ -69,7 +69,6 @@ for N_particle in task_particle_counts(task, mode):
         f"--N_particle={N_particle}",
         f"--output={output}",
         "--no-progress_bar",
-        "--no-tally_output",
     ]
 
     print("=" * 80)

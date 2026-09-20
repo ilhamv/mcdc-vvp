@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import yaml
 
-from util import output_name, task_particle_counts, task_modes
+from util import output_name, tally_score_paths, task_particle_counts, task_modes
 
 parser = argparse.ArgumentParser(description="Process the serial-performance suite.")
 parser.add_argument(
@@ -25,6 +25,7 @@ args = parser.parse_args()
 def performance_metrics(output_file):
     """Read measured performance and settings from one MC/DC output."""
     with h5py.File(output_file, "r") as output:
+        tally_score_paths(output)
         if "performance" not in output:
             raise ValueError(
                 f"Missing performance metrics in {output_file}; rerun with the updated MC/DC."
@@ -44,6 +45,70 @@ def performance_metrics(output_file):
             f"Expected positive histories and one MPI rank in {output_file}."
         )
     return metrics
+
+
+def maximum_relative_variance(output_file, reference_file):
+    """Return the maximum squared standard error relative to fixed reference means."""
+    maximum = 0.0
+    nonzero_bins = 0
+    with h5py.File(output_file, "r") as output, h5py.File(
+        reference_file, "r"
+    ) as reference:
+        paths = tally_score_paths(reference)
+        if tally_score_paths(output) != paths:
+            raise ValueError(f"Tally scores do not match the reference: {output_file}")
+        for tally_name in reference["tallies"]:
+            reference_grid = reference[f"tallies/{tally_name}"].get("grid")
+            output_grid = output[f"tallies/{tally_name}"].get("grid")
+            if (reference_grid is None) != (output_grid is None):
+                raise ValueError(
+                    f"Tally grids do not match the reference: {output_file}"
+                )
+            if reference_grid is not None:
+                if set(reference_grid) != set(output_grid) or any(
+                    not np.array_equal(reference_grid[key][()], output_grid[key][()])
+                    for key in reference_grid
+                ):
+                    raise ValueError(
+                        f"Tally grids do not match the reference: {output_file}"
+                    )
+        for path in paths:
+            mean = reference[f"{path}/mean"]
+            sdev = output[f"{path}/sdev"]
+            if sdev.shape != mean.shape:
+                raise ValueError(
+                    f"Tally shape does not match the reference: {path} in {output_file}"
+                )
+            # Read slabs to avoid loading large space-time tallies in full.
+            if mean.shape:
+                row_size = max(1, int(np.prod(mean.shape[1:])))
+                stride = max(1, 1_000_000 // row_size)
+                selections = (
+                    slice(start, start + stride)
+                    for start in range(0, mean.shape[0], stride)
+                )
+            else:
+                selections = [()]
+            for selection in selections:
+                reference_mean = np.asarray(mean[selection])
+                standard_error = np.asarray(sdev[selection])
+                if not np.all(np.isfinite(reference_mean)):
+                    raise ValueError(
+                        f"Nonfinite reference mean: {path} in {reference_file}"
+                    )
+                mask = reference_mean != 0.0
+                count = int(np.count_nonzero(mask))
+                if not count:
+                    continue
+                values = standard_error[mask]
+                if not np.all(np.isfinite(values)) or np.any(values < 0.0):
+                    raise ValueError(
+                        f"Invalid tally standard deviation: {path} in {output_file}"
+                    )
+                relative_variance = (values / reference_mean[mask]) ** 2
+                maximum = max(maximum, float(np.max(relative_variance)))
+                nonzero_bins += count
+    return (maximum if nonzero_bins else float("nan")), nonzero_bins
 
 
 def add_series(axis, records, metric):
@@ -118,6 +183,7 @@ for case_name, task in tasks.items():
     modes = task_modes(task)
     case_dir = suite_dir / "cases" / case_name
     records_by_particle = {}
+    output_files = {}
 
     for mode in modes:
         for N_particle in task_particle_counts(task, mode):
@@ -127,6 +193,7 @@ for case_name, task in tasks.items():
                 print(f"Skip incomplete point: {case_name}, {mode}, N={N_particle}")
                 continue
             metrics = performance_metrics(output_file)
+            output_files[mode, N_particle] = output_file
             if metrics["N_particle"] != N_particle:
                 raise ValueError(f"Particle count mismatch in {output_file}.")
             record = records_by_particle.setdefault(
@@ -152,23 +219,44 @@ for case_name, task in tasks.items():
         print(f"Skip incomplete case: {case_name}; no complete points.")
         continue
 
+    # Both modes use the same largest-history reference; prefer Numba on ties.
+    reference_mode, reference_particle = max(
+        output_files,
+        key=lambda point: (
+            records_by_particle[point[1]]["N_history"],
+            point[0] == "numba",
+        ),
+    )
+    reference_file = output_files[reference_mode, reference_particle]
+    reference_histories = records_by_particle[reference_particle]["N_history"]
+    print(
+        f"Reference for {case_name}: {reference_file.name}, N_history={reference_histories}"
+    )
+
     for record in records:
+        record["reference_mode"] = reference_mode
+        record["reference_N_particle"] = reference_particle
+        record["reference_N_history"] = reference_histories
         for mode in modes:
             if f"runtime_{mode}" not in record:
                 continue
             record[f"tracking_rate_{mode}"] = (
                 record["N_history"] / record[f"runtime_{mode}"]
             )
-            variance = record[f"effective_variance_{mode}"]
+            variance, count = maximum_relative_variance(
+                output_files[mode, record["N_particle"]], reference_file
+            )
+            record[f"max_relative_variance_{mode}"] = variance
+            record["N_reference_nonzero_bin"] = count
             if np.isfinite(variance) and variance > 0.0:
-                # MC/DC stores fractional relative variance; report precision in %^-2.
+                # Convert fractional relative variance to precision in %^-2.
                 precision = 1.0e-4 / variance
             else:
                 # Undefined or nonpositive variance cannot give a finite precision.
                 precision = float("nan")
                 print(
                     f"Omit precision metrics: {case_name}, {mode}, "
-                    f"N={record['N_history']}, invalid effective variance {variance}"
+                    f"N={record['N_history']}, invalid maximum relative variance {variance}"
                 )
             record[f"precision_{mode}"] = precision
             record[f"precision_rate_{mode}"] = precision / record["N_history"]
@@ -188,13 +276,13 @@ for case_name, task in tasks.items():
     for metric, title, ylabel in (
         ("runtime", "runtime", r"Runtime, $T$ [s]"),
         ("tracking_rate", "tracking rate", r"Tracking rate, $T_r$ [histories/s]"),
-        ("precision", "precision", r"Precision, $1/V_{\%}$ [$\%^{-2}$]"),
+        ("precision", "precision", r"Precision, $1/V_{\%,\max}$ [$\%^{-2}$]"),
         (
             "precision_rate",
             "precision rate",
-            r"Precision rate, $1/(V_{\%}N)$ [$\%^{-2}$ history$^{-1}$]",
+            r"Precision rate, $1/(V_{\%,\max}N)$ [$\%^{-2}$ history$^{-1}$]",
         ),
-        ("fom", "figure of merit", r"FOM, $1/(TV_{\%})$ [$\%^{-2}$ s$^{-1}$]"),
+        ("fom", "figure of merit", r"FOM, $1/(TV_{\%,\max})$ [$\%^{-2}$ s$^{-1}$]"),
     ):
         figure, axis = plt.subplots(figsize=(7.2, 4.8))
         add_series(axis, records, metric)

@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import h5py
 import numpy as np
 
 MODES = ("numba", "python")
@@ -40,10 +41,46 @@ def output_name(mode, N_particle):
     return f"output_{mode}_{int(N_particle)}"
 
 
+def tally_score_paths(output):
+    """Return tally-score groups with matching mean and standard-deviation datasets."""
+    paths = []
+    if "tallies" in output:
+        for tally_name, tally in output["tallies"].items():
+            for score_name, score in tally.items():
+                if not isinstance(score, h5py.Group):
+                    continue
+                if "mean" not in score and "sdev" not in score:
+                    continue
+                if (
+                    "mean" not in score
+                    or "sdev" not in score
+                    or score["mean"].shape != score["sdev"].shape
+                ):
+                    raise ValueError(
+                        f"Incomplete tally score: {score.name} in {output.filename}"
+                    )
+                paths.append(f"tallies/{tally_name}/{score_name}")
+    if not paths:
+        raise ValueError(
+            f"Missing full tally results in {output.filename}; move the old output "
+            "aside and rerun without --no-tally_output."
+        )
+    return sorted(paths)
+
+
+def output_complete(output_file):
+    """Check for an existing output and reject files lacking required tally results."""
+    if not output_file.is_file():
+        return False
+    with h5py.File(output_file, "r") as output:
+        tally_score_paths(output)
+    return True
+
+
 def case_outputs_complete(case_dir, task, mode):
     """Return whether all configured outputs exist for one case and mode."""
     case_dir = Path(case_dir)
     return all(
-        (case_dir / f"{output_name(mode, count)}.h5").is_file()
+        output_complete(case_dir / f"{output_name(mode, count)}.h5")
         for count in task_particle_counts(task, mode)
     )
