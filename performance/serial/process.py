@@ -274,15 +274,15 @@ for case_name, task in tasks.items():
         writer.writerows(records)
 
     for metric, title, ylabel in (
-        ("runtime", "runtime", r"Runtime, $T$ [s]"),
-        ("tracking_rate", "tracking rate", r"Tracking rate, $T_r$ [histories/s]"),
-        ("precision", "precision", r"Precision, $1/V_{\%,\max}$ [$\%^{-2}$]"),
+        ("runtime", "runtime", r"Runtime [s]"),
+        ("tracking_rate", "tracking rate", r"Tracking rate [histories/s]"),
+        ("precision", "precision", r"Precision [$\%^{-2}$]"),
         (
             "precision_rate",
             "precision rate",
-            r"Precision rate, $1/(V_{\%,\max}N)$ [$\%^{-2}$ history$^{-1}$]",
+            r"Precision rate [$\%^{-2}$/history]",
         ),
-        ("fom", "figure of merit", r"FOM, $1/(TV_{\%,\max})$ [$\%^{-2}$ s$^{-1}$]"),
+        ("fom", "figure of merit", r"FOM [$\%^{-2}$/s]"),
     ):
         figure, axis = plt.subplots(figsize=(7.2, 4.8))
         add_series(axis, records, metric)
