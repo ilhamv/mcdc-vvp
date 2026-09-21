@@ -14,13 +14,13 @@ LAUNCH_CONFIG = {
     "verification/code_to_code/neutron": {
         "enabled": False,
         "platform": "dane",
-        "N_node": 10,
+        "N_node": 20,
         "walltime": 24.0,
     },
     "performance/serial": {
         "enabled": False,
         "platform": "dane",
-        "walltime": 15.0,
+        "walltime": 5.25,
     },
     "performance/parallel": {
         "enabled": False,

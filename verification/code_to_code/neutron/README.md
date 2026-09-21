@@ -138,11 +138,10 @@ The OpenMC statepoints for this baseline case are provided by the associated Zen
 
 The `kobayashi-detector` case extends this model with localized prompt-fission multiplication and a detector response at the channel exit.
 It retains the outer dimensions, dog-leg channel layout, source pulse, unit neutron speed, and reflective and vacuum outer boundary conditions of the baseline.
-A fuel sphere of radius 5, centered at (35, 55, 5), replaces channel material at a bend.
-Its fission cross section is 0.1 and its prompt neutron yield is 2.5, with no scattering or capture.
-A cylindrical detector of radius 4 is aligned with the y axis at (x, z) = (35, 35) and spans y = [90, 100].
-Its capture and scattering cross sections are both 0.05, matching the shield material; weakly interacting channel material remains around both inclusions.
-These additions exercise transport across curved material interfaces and the contribution of fission-born neutrons to the downstream response.
+A 10 cm fuel cube occupies x = [30, 40], y = [50, 60], z = [0, 10] at the second channel turn.
+The fuel has scattering and fission cross sections of 0.05 each, zero capture, and prompt fission multiplicity 2.5.
+A 10 cm detector cube occupies x = [30, 40], y = [90, 100], z = [30, 40] at the outlet and uses the shield material.
+These material, geometry, and source definitions match `mcdc/examples/kobayashi-dogleg/pulsed_with_fission/input.py`.
 
 The detector variant scores only capture integrated over the detector volume and each time bin, normalized per source particle.
 It replaces the baseline flux-map and density tallies with 500 unit-width time bins over [0, 500], extending the observation window and refining the time resolution.

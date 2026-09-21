@@ -25,6 +25,8 @@ Target release: 0.16.0, the first versioned MC/DC-VVP release.
 
 ### Changed
 
+- Align the verification, serial-performance, and parallel-performance `kobayashi-detector` models with the MC/DC `pulsed_with_fission` example, using cubic fuel and detector regions and equal scattering and fission fuel cross sections of 0.05 cm⁻¹, from [@ilhamv]
+
 - Distribute the analytical fixed-source slab cases across the $x$, $y$, and $z$ axes to exercise every Cartesian slab orientation, from [@ilhamv]
 - Migration to Maestro-based launch, from [@ilhamv]
 - Update analytical fixed-source cases for the simulation-owned MC/DC interface and unified material model, from [@ilhamv]

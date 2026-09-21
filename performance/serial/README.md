@@ -90,6 +90,7 @@ For each run, the maximum relative variance is $V_{\max} = \max_{i:\mu_{i,\mathr
 The maximum includes all tally scores and bins whose reference mean is nonzero, even if the current run's mean is zero.
 This uses the variance normalized by a fixed reference mean, not the squared difference between the current and reference means.
 Tally scores, shapes, and grids must match the reference.
+The tally validation and reference-based variance calculation in `../metrics.py` are shared with the parallel suite.
 The plots and derived CSV metrics use $V_{\%,\max} = 10^4 V_{\max}$ in percent squared.
 With total runtime $T$, precision is $1/V_{\%,\max}$ in $\%^{-2}$, precision rate is $1/(V_{\%,\max}N)$ in $\%^{-2}$ per history, and figure of merit (FOM) is $1/(TV_{\%,\max})$ in $\%^{-2}$ per second.
 FOM is the product of tracking rate and precision rate: $(N/T)\,[1/(V_{\%,\max}N)] = 1/(TV_{\%,\max})$.

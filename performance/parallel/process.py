@@ -9,9 +9,11 @@ from pathlib import Path
 
 import h5py
 import matplotlib.pyplot as plt
+import numpy as np
 import yaml
 
-from util import case_directory, output_name, performance_tasks
+from util import case_directory, output_name, performance_tasks, tally_score_paths
+from performance.metrics import maximum_relative_variance
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -25,6 +27,7 @@ suite_dir = Path(__file__).resolve().parent
 
 
 def runtime_value(runtime, name):
+    """Read an optional runtime component in seconds."""
     return float(runtime[name][()].item()) if name in runtime else float("nan")
 
 
@@ -62,6 +65,7 @@ for task in tasks:
         continue
 
     with h5py.File(output_file, "r") as output:
+        tally_score_paths(output)
         if "performance" not in output:
             raise ValueError(
                 f"Missing performance metrics in {output_file}; rerun with the updated MC/DC."
@@ -73,8 +77,7 @@ for task in tasks:
         record = {
             key: task[key]
             for key in (
-                "problem",
-                "method",
+                "case",
                 "N_node",
                 "workload_multiplier",
                 "total_multiplier",
@@ -98,6 +101,10 @@ for task in tasks:
         raise ValueError(f"Invalid total runtime in {output_file}.")
     if record["N_history"] <= 0 or record["N_rank"] <= 0:
         raise ValueError(f"Invalid history or rank count in {output_file}.")
+    if record["N_rank"] != task["N_node"] * launch_config["cpu_cores_per_node"]:
+        raise ValueError(
+            f"Rank count does not match the full-node launch in {output_file}."
+        )
     record["tracking_rate"] = record["N_history"] / record["runtime_total"]
     record["tracking_rate_per_node"] = record["tracking_rate"] / record["N_node"]
     records.append(record)
@@ -114,6 +121,7 @@ shutil.copy2(task_file, results_dir / "task.yaml")
 
 
 def save_figure(figure, path):
+    """Save and close one performance figure."""
     figure.tight_layout()
     figure.savefig(path, dpi=180)
     plt.close(figure)
@@ -121,21 +129,98 @@ def save_figure(figure, path):
 
 groups = defaultdict(list)
 for record in records:
-    groups[(record["problem"], record["method"])].append(record)
+    groups[record["case"]].append(record)
 
-for (problem, method), case_records in groups.items():
+for case_name, case_records in groups.items():
     case_records.sort(key=lambda item: (item["N_node"], item["workload_multiplier"]))
-    destination = results_dir / problem / method
+    if len({item["N_batch"] for item in case_records}) != 1:
+        raise ValueError(
+            f"Batch counts must match across matrix points for {case_name}."
+        )
+    # Use one reference across node counts; prefer fewer nodes on history-count ties.
+    reference = max(case_records, key=lambda item: (item["N_history"], -item["N_node"]))
+    case_dir = case_directory(suite_dir, reference)
+    reference_file = case_dir / f"{output_name(reference)}.h5"
+    print(
+        f"Reference for {case_name}: {reference_file.name}, N_history={reference['N_history']}"
+    )
+    for record in case_records:
+        variance, count = maximum_relative_variance(
+            case_dir / f"{output_name(record)}.h5", reference_file
+        )
+        record.update(
+            reference_N_node=reference["N_node"],
+            reference_workload_multiplier=reference["workload_multiplier"],
+            reference_N_particle=reference["N_particle"],
+            reference_N_history=reference["N_history"],
+            N_reference_nonzero_bin=count,
+            max_relative_variance=variance,
+        )
+        if np.isfinite(variance) and variance > 0.0:
+            # Convert fractional relative variance to precision in %^-2.
+            precision = 1.0e-4 / variance
+        else:
+            precision = float("nan")
+            print(
+                f"Omit precision metrics: {case_name}, n={record['N_node']}, "
+                f"m={record['workload_multiplier']}, invalid maximum relative variance {variance}"
+            )
+        record["precision"] = precision
+        record["precision_rate"] = precision / record["N_history"]
+        record["fom"] = record["tracking_rate"] * record["precision_rate"]
+
+    destination = results_dir / case_name
     destination.mkdir(parents=True)
     with (destination / "records.csv").open("w", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(case_records[0]))
         writer.writeheader()
         writer.writerows(case_records)
 
-    figure, axis = plt.subplots(figsize=(7.2, 4.8))
     by_node = defaultdict(list)
     for record in case_records:
         by_node[record["N_node"]].append(record)
+    # Match serial metrics, using a separate curve for each node count.
+    for metric, filename, ylabel in (
+        ("runtime_total", "runtime", "Runtime [s]"),
+        ("tracking_rate", "tracking_rate", "Tracking rate [histories/s]"),
+        ("precision", "precision", r"Precision [$\%^{-2}$]"),
+        ("precision_rate", "precision_rate", r"Precision rate [$\%^{-2}$/history]"),
+        ("fom", "fom", r"FOM [$\%^{-2}$/s]"),
+    ):
+        figure, axis = plt.subplots(figsize=(7.2, 4.8))
+        for N_node, group in sorted(by_node.items()):
+            group.sort(key=lambda item: item["N_history"])
+            axis.plot(
+                [item["N_history"] for item in group],
+                [item[metric] for item in group],
+                marker="o",
+                markerfacecolor="none",
+                linewidth=2.0,
+                label=f"{N_node} node{'s' if N_node != 1 else ''}",
+            )
+        axis.set_xscale("log")
+        axis.set_yscale("log")
+        if not any(
+            np.isfinite(item[metric]) and item[metric] > 0.0 for item in case_records
+        ):
+            axis.set_ylim(0.1, 10.0)
+            axis.text(
+                0.5,
+                0.5,
+                "No finite positive values",
+                transform=axis.transAxes,
+                horizontalalignment="center",
+            )
+        axis.set(
+            xlabel=r"Number of histories, $N$",
+            ylabel=ylabel,
+            title=f"{case_name}: parallel {filename.replace('_', ' ')}",
+        )
+        axis.grid(True, which="both", alpha=0.3)
+        axis.legend(ncols=2)
+        save_figure(figure, destination / f"{filename}.png")
+
+    figure, axis = plt.subplots(figsize=(7.2, 4.8))
     for N_node, group in sorted(by_node.items()):
         group.sort(key=lambda item: item["N_history"])
         axis.plot(

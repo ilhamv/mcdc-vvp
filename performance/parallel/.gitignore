@@ -2,4 +2,6 @@ maestro_run_*/
 results/
 study.yaml
 
+cases/*/output*.h5
+# Preserve ignore rules for generated outputs from the former case layout.
 cases/*/*/output*.h5

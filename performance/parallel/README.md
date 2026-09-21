@@ -1,16 +1,15 @@
 # Parallel Performance
 
-This suite measures MC/DC throughput, workload saturation, and parallel scaling across multiple compute nodes.
+This suite measures MC/DC runtime, tracking rate, precision, precision rate, figure of merit, and parallel scaling across multiple compute nodes in Numba mode.
 It uses one common automation workflow for all registered parallel-performance cases and can run independently or through the top-level MC/DC-VVP workflow.
 
 ## Directory layout
 
 ```text
 cases/              Performance case definitions
-  <problem>/
-    <method>/
-      input.py       Define and run one MC/DC model and method
-      output_*.h5    Generated outputs for the scaling matrix
+  <case>/
+    input.py         Define and run one MC/DC model
+    output_*.h5      Generated outputs including full tally results
 maestro_run_*/      Generated Maestro workflow directories
 results/            Processed tables and scaling figures
 
@@ -27,12 +26,12 @@ util.py             Provide shared task-generation utilities
 
 ## Configuration
 
-Each entry in `task.yaml` registers one problem and execution method.
-Its value is the particle count calibrated to take approximately one hour on one full baseline node:
+Each entry in `task.yaml` registers one case.
+Its `N_particle_base` is the particles per batch calibrated to take approximately one hour on one full baseline node, with the input's batch count and full tally output:
 
 ```yaml
-<problem>:
-  <method>: <baseline-particle-count>
+<case>:
+  N_particle_base: <baseline-particle-count>
 ```
 
 The shared input matrix contains node counts `1, 2, 4, 8, 16, 32, 64` and per-node workload multipliers `1, 2, 4, 8, 16`.
@@ -49,10 +48,15 @@ The requested walltimes are `1.5, 3, 6, 12, 24` hours for workload multipliers `
 The five fixed-multiplier columns form weak-scaling series.
 Points with equal `nodes * workload-multiplier` form strong-scaling series.
 The input file remains the source of truth for settings such as `N_batch`.
+The current `kobayashi-detector` baseline of `1_000_000` is a placeholder that must be calibrated before the full study; the former analog case's calibration does not apply.
+The detector input matches the serial case, including 30 batches and implicit capture.
+The current case defines its multigroup materials directly and needs no external data directory.
+HPC runs use the shared platform settings in `configs/platform_config.py` and account, queue, reservation, and Python paths in `configs/user_config.py`.
+The launcher currently supports full-CPU Dane runs.
 
 ## Adding a case
 
-Create `cases/<problem>/<method>/input.py`, then add its calibrated baseline particle count to `task.yaml`.
+Create `cases/<case>/input.py`, then add its calibrated baseline particle count to `task.yaml`.
 The shared launcher expands every registered case over the same scaling matrix; no case-specific launch script is required.
 
 ## Launching and processing
@@ -70,23 +74,40 @@ python launch.py --platform dane --N_node_max 64
 ```
 
 Completed matrix points are skipped on relaunch.
-Each task uses `--no-tally_output` and stores an HDF5 result directly in its case directory.
-The output retains standard metadata, runtime details, and the `performance/` group without saving tally results.
+Each task stores an HDF5 result directly in its case directory, including full tally results, standard metadata, runtime details, and the `performance/` group.
+Numba caching is disabled, consistent with the serial suite, and all runtime-dependent metrics use measured total runtime without subtracting compilation or other overhead.
 Output names encode the node count and workload multiplier, for example `output_n004_m16.h5`.
 
 After the jobs finish, run `python process.py`.
-Each case receives a CSV table, a per-node performance envelope, a weak-scaling figure, and a strong-scaling figure under `results/<problem>/<method>/`.
+Each case receives `records.csv` and eight figures under `results/<case>/`.
+The five log-log plots against total histories are `runtime.png`, `tracking_rate.png`, `precision.png`, `precision_rate.png`, and `fom.png`, with a separate curve for each node count.
+The existing `performance_envelope.png`, `weak_scaling.png`, and `strong_scaling.png` show per-node tracking rate and scaling efficiencies.
 Tracking rates and scaling efficiencies use total runtime from `performance/runtime`, including compilation and output work.
 History counts come from `performance/N_history`, rather than being inferred from the input file.
-The CSV also records `performance/N_rank`, `performance/effective_variance`, and the runtime breakdown.
+For each case, all node counts use the same reference: the available configured output with the largest total history count, preferring fewer nodes on a tie.
+The maximum relative variance is $V_{\max}=\max_{i:\mu_{i,\mathrm{ref}}\ne 0}(s_i/\mu_{i,\mathrm{ref}})^2$, where $s_i$ is the current run's tally standard error (`sdev`).
+The maximum includes all tally scores and all bins with nonzero reference means, even if the current run's mean is zero.
+Tally scores, grids, shapes, and batch counts must match across matrix points, and rank counts must match the full-node configuration saved for the launch.
+The shared calculation in `../metrics.py` is also used by the serial suite.
+With $V_{\%,\max}=10^4 V_{\max}$, precision is $1/V_{\%,\max}$ in $\%^{-2}$, precision rate is $1/(V_{\%,\max}N)$ in $\%^{-2}$ per history, and FOM is $1/(TV_{\%,\max})$ in $\%^{-2}$ per second.
+FOM is the product of tracking rate and precision rate.
+These three metrics use total runtime and histories for the whole job, not per-node normalization.
+The CSV also records the reference node/multiplier and particle/history counts, `N_reference_nonzero_bin`, fractional `max_relative_variance`, `performance/N_rank`, and the runtime breakdown.
+The original `performance/effective_variance` is retained for comparison but not used for plotting.
+If no reference bins have nonzero means, or the maximum variance is nonfinite or nonpositive, derived precision metrics are recorded as `nan` and omitted from curves.
+An entirely unavailable metric gets an explanatory message in its figure.
 Pass a `maestro_run_<timestamp>` directory to process a specific launch.
-Older runtime-only outputs lack the required metrics and must be moved aside or removed before relaunching, since existing outputs are skipped.
+Processing uses that run's saved task and launch configuration and skips missing matrix points.
+Scaling efficiencies are normalized to the smallest available node count in each series.
+Outputs without full tally results are rejected rather than reused or overwritten; move them aside before relaunching.
+Measurements from runs that omitted tally output or enabled caching represent a different workload.
+Older saved tasks using the problem/method layout are not compatible with this case layout.
 
 Run `python cleanup.py` to remove generated task outputs, Maestro records, processed results, and `study.yaml`.
 The study file is untracked and regenerated by `launch.py` for the selected platform.
 
 ## Cases
 
-| Problem | Method | Description |
-| :------ | :----- | :---------- |
-| [`kobayashi`](cases/kobayashi/analog/) | Analog | Time-dependent Kobayashi dog-leg problem using standard analog transport. |
+| Case | Description |
+| :--- | :---------- |
+| [`kobayashi-detector`](cases/kobayashi-detector/) | Transient Kobayashi dog-leg problem with a fuel cube and detector capture tally. |

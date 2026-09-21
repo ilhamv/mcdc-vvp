@@ -10,11 +10,10 @@ REPO_DIR = Path(__file__).resolve().parents[2]
 if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 
-from util import case_directory, output_name, performance_task
+from util import case_directory, output_complete, output_name, performance_task
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--problem", required=True)
-parser.add_argument("--method", required=True)
+parser.add_argument("--name", required=True)
 parser.add_argument("--nodes", type=int, required=True)
 parser.add_argument("--multiplier", type=int, required=True)
 parser.add_argument("--N_particle_base", type=int, required=True)
@@ -23,8 +22,7 @@ args = parser.parse_args()
 
 suite_dir = Path(__file__).resolve().parent
 task = performance_task(
-    args.problem,
-    args.method,
+    args.name,
     args.N_particle_base,
     args.nodes,
     args.multiplier,
@@ -37,7 +35,7 @@ output_file = case_dir / f"{output}.h5"
 if not input_file.is_file():
     raise FileNotFoundError(input_file)
 
-if output_file.is_file():
+if output_complete(output_file):
     print(f"Skip complete task: {task['name']}")
     raise SystemExit(0)
 
@@ -49,8 +47,6 @@ command = [
     f"--N_particle={task['N_particle']}",
     f"--output={output}",
     "--no-progress_bar",
-    "--caching",
-    "--no-tally_output",
 ]
 
 print("=" * 80)

@@ -6,11 +6,8 @@ from pathlib import Path
 suite_dir = Path(__file__).resolve().parent
 cases_dir = suite_dir / "cases"
 # Remove simulation outputs while preserving case inputs and shared data.
-for output_file in cases_dir.glob("*/*/output*.h5"):
+for output_file in cases_dir.glob("*/output*.h5"):
     output_file.unlink()
-for runs_dir in cases_dir.glob("*/*/runs"):
-    if runs_dir.is_dir():
-        shutil.rmtree(runs_dir)
 # Remove generated Maestro workflow directories.
 for maestro_run in suite_dir.glob("maestro_run_*"):
     if maestro_run.is_dir():

@@ -26,6 +26,7 @@ from util import (
     NODE_COUNTS,
     WALLTIME_BASE_HOURS,
     case_directory,
+    output_complete,
     output_name,
     performance_tasks,
 )
@@ -116,7 +117,7 @@ for task in tasks:
     output_file = case_dir / f"{output_name(task)}.h5"
     if not input_file.is_file():
         raise FileNotFoundError(f"Performance input not found: {input_file}")
-    if output_file.is_file():
+    if output_complete(output_file):
         skipped_tasks.append(task["name"])
         print(f"Skip complete task: {task['name']}")
         continue
@@ -129,8 +130,7 @@ for task in tasks:
     case_walltimes[task["name"]] = walltime
     command = (
         f"{mcdc_python} {run_case} "
-        f"--problem {task['problem']} "
-        f"--method {task['method']} "
+        f"--name {task['case']} "
         f"--nodes {task['N_node']} "
         f"--multiplier {task['workload_multiplier']} "
         f"--N_particle_base {task['N_particle_base']} "
@@ -140,7 +140,7 @@ for task in tasks:
         {
             "name": task["name"],
             "description": (
-                f"{task['problem']}/{task['method']}: {task['N_node']} nodes, "
+                f"{task['case']}: {task['N_node']} nodes, "
                 f"workload multiplier {task['workload_multiplier']}"
             ),
             "run": {
