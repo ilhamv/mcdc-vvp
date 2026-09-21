@@ -1,9 +1,11 @@
 """Run one point in a parallel-performance scaling matrix."""
 
 import argparse
+import os
 import shlex
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 REPO_DIR = Path(__file__).resolve().parents[2]
@@ -39,13 +41,21 @@ if output_complete(output_file):
     print(f"Skip complete task: {task['name']}")
     raise SystemExit(0)
 
+# Keep each launch's caches separate, including retries of the same matrix point.
+# Use the shared suite filesystem so every MPI rank can load rank zero's artifacts.
+workspaces_dir = suite_dir / "workspaces"
+workspaces_dir.mkdir(exist_ok=True)
+work_dir = Path(tempfile.mkdtemp(prefix=f"{task['name']}_", dir=workspaces_dir))
+env = os.environ.copy()
+env["NUMBA_CACHE_DIR"] = str(work_dir / "__numba_cache__")
+
 command = [
     *shlex.split(args.launcher),
     sys.executable,
-    "input.py",
+    str(input_file),
     "--mode=numba",
     f"--N_particle={task['N_particle']}",
-    f"--output={output}",
+    f"--output={case_dir / output}",
     "--no-progress_bar",
 ]
 
@@ -54,6 +64,7 @@ print(f"Task                : {task['name']}")
 print(f"Nodes               : {task['N_node']}")
 print(f"Workload multiplier : {task['workload_multiplier']}")
 print(f"Particles per batch : {task['N_particle']}")
+print(f"Working directory   : {work_dir}")
 print(f"Command             : {shlex.join(command)}")
 print("=" * 80)
-subprocess.run(command, cwd=case_dir, check=True)
+subprocess.run(command, cwd=work_dir, env=env, check=True)
