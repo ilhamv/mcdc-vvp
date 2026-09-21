@@ -20,7 +20,7 @@ LAUNCH_CONFIG = {
     "performance/serial": {
         "enabled": False,
         "platform": "dane",
-        "walltime": 5.25,
+        "walltime": 24.0,
     },
     "performance/parallel": {
         "enabled": False,
