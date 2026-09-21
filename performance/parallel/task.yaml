@@ -1,3 +1,2 @@
 kobayashi-detector:
-  # Placeholder: calibrate for about one hour on one full Dane node.
-  N_particle_base: 1_000_000
+  N_particle_base: 30_000_000
