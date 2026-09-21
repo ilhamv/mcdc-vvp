@@ -63,6 +63,7 @@ Edit `configs/launch_config.py` to enable the desired suites and set their platf
 Use `platform=None` for local execution or a name from `configs/platform_config.py` for HPC execution.
 For HPC execution, `N_node` sets the number of nodes and each node uses all available CPU cores.
 The parallel-performance suite instead uses `N_node_max` to generate every power-of-two node count through that value.
+It accepts a platform list such as `"platform": ["dane", "tuolumne"]`, isolates each platform's outputs, and uses all GPUs on GPU-equipped platforms or all CPU cores on CPU-only platforms.
 For HPC execution, a suite's base `walltime` in hours is scaled by each case's `walltime_factor` in that suite's `task.yaml`.
 The scaled value is rounded up to the scheduler's supported resolution, the platform maximum remains the final limit, and local execution ignores walltime settings.
 Run the top-level `python cleanup.py` before launching when the entire configured campaign should start fresh.
@@ -88,6 +89,7 @@ python launch.py --platform tuolumne
 ```
 
 The `--platform` option selects suites with a matching configured platform.
+For parallel performance, it selects membership in the configured platform list; run the command separately on each target machine rather than submitting remotely.
 
 ### Processing results
 
@@ -100,6 +102,7 @@ python process.py
 For each suite registered in `configs/launch_config.py`, the top-level processor invokes the suite processor when a Maestro run is available and then moves the generated `results/` directory under the same suite path in the top-level `results/` directory.
 An existing suite `results/` directory can still be collected when no Maestro run is present, and suites with neither are skipped.
 Within each suite, `convergence/` contains study-wide convergence figures and `comparison/` contains plots or animations from the largest-statistics result.
+These directories apply to verification; parallel performance instead combines the latest saved study per platform under `results/<comparison>/`, as described in its suite README.
 Collecting a suite results replaces that suite's existing top-level ones.
 
 ### Preparing release assets
@@ -166,6 +169,10 @@ For parallel runs on $P$ nodes, tracking rate and FOM are reported per node as $
 | :---- | :---------- |
 | [Serial](performance/serial/README.md) | Single-process Python and Numba studies. |
 | [Parallel](performance/parallel/README.md) | Full-node Numba strong- and weak-scaling studies. |
+
+Parallel results pair a detailed **Performance envelope** with a **Performance level + scaling evidence** summary at common histories-per-node workloads.
+The summary compares weak scaling to the left of its main bar and workload sensitivity, as indirect strong-scaling evidence, to its right.
+Interpolation is marked and restricted to measured ranges; the envelope indicates whether the selected level is near saturation.
 
 ## Documentation
 

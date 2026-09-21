@@ -2,6 +2,7 @@
 
 import argparse
 import os
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -26,8 +27,8 @@ from util import (
     NODE_COUNTS,
     WALLTIME_BASE_HOURS,
     case_directory,
-    output_complete,
-    output_name,
+    platform_resources,
+    task_output_complete,
     performance_tasks,
 )
 
@@ -44,7 +45,7 @@ except ImportError:
 parser = argparse.ArgumentParser(
     description="Launch the MC/DC parallel-performance suite."
 )
-parser.add_argument("--platform", choices=["dane"], default="dane")
+parser.add_argument("--platform", choices=PLATFORMS, default="dane")
 parser.add_argument(
     "--N_node_max",
     type=int,
@@ -55,7 +56,7 @@ parser.add_argument(
 parser.add_argument(
     "--dry_run",
     action="store_true",
-    help="Write study.yaml without submitting it.",
+    help="Write the platform-specific study file without submitting it.",
 )
 args = parser.parse_args()
 
@@ -67,8 +68,9 @@ args = parser.parse_args()
 suite_dir = Path(__file__).resolve().parent
 task_file = suite_dir / "task.yaml"
 run_case = suite_dir / "run_case.py"
-study_file = suite_dir / "study.yaml"
+study_file = suite_dir / f"study_{args.platform}.yaml"
 platform = PLATFORMS[args.platform]
+resources = platform_resources(args.platform)
 user_platform_config = USER_CONFIG.get(args.platform, {})
 
 if args.N_node_max > platform["max_nodes"]:
@@ -86,7 +88,7 @@ else:
 account = user_platform_config.get("account")
 if account is None and not args.dry_run:
     raise ValueError(
-        "Platform 'dane' requires an account. Create configs/user_config.py "
+        f"Platform '{args.platform}' requires an account. Create configs/user_config.py "
         "from configs/user_config.py.template."
     )
 if account is None:
@@ -98,7 +100,7 @@ if account is None:
 
 with task_file.open("r") as stream:
     task_config = yaml.safe_load(stream)
-tasks = performance_tasks(task_config, args.N_node_max)
+tasks = performance_tasks(task_config, args.N_node_max, args.platform)
 
 
 # ======================================================================================
@@ -114,10 +116,9 @@ cpu_cores = platform["cpu_cores_per_node"]
 for task in tasks:
     case_dir = case_directory(suite_dir, task)
     input_file = case_dir / "input.py"
-    output_file = case_dir / f"{output_name(task)}.h5"
     if not input_file.is_file():
         raise FileNotFoundError(f"Performance input not found: {input_file}")
-    if output_complete(output_file):
+    if task_output_complete(suite_dir, task):
         skipped_tasks.append(task["name"])
         print(f"Skip complete task: {task['name']}")
         continue
@@ -129,8 +130,9 @@ for task in tasks:
     )
     case_walltimes[task["name"]] = walltime
     command = (
-        f"{mcdc_python} {run_case} "
-        f"--name {task['case']} "
+        f"{shlex.quote(mcdc_python)} {shlex.quote(str(run_case))} "
+        f"--name {shlex.quote(task['case'])} "
+        f"--platform {args.platform} "
         f"--nodes {task['N_node']} "
         f"--multiplier {task['workload_multiplier']} "
         f"--N_particle_base {task['N_particle_base']} "
@@ -146,16 +148,31 @@ for task in tasks:
             "run": {
                 "cmd": command,
                 "nodes": task["N_node"],
-                "procs": task["N_node"] * cpu_cores,
+                "procs": task["N_node"] * resources["ranks_per_node"],
                 "walltime": walltime,
                 "exclusive": True,
             },
         }
     )
+    if resources["target"] == "gpu":
+        run = steps[-1]["run"]
+        run["gpus"] = 1
+        if platform["scheduler"] == "flux":
+            # Exclusive allocation reserves whole nodes. A nonexclusive inner
+            # launcher preserves Flux's explicit one-GPU-per-rank binding.
+            run["exclusive"] = {"allocation": True, "launcher": False}
+        elif platform["scheduler"] == "lsf":
+            run.update(
+                {
+                    "rs per node": resources["ranks_per_node"],
+                    "tasks per rs": 1,
+                    "cpus per rs": 1,
+                }
+            )
 
 study = {
     "description": {
-        "name": "maestro_run",
+        "name": f"maestro_run_{args.platform}",
         "description": "MC/DC parallel-performance scaling study",
     },
     "env": {"variables": {}},
@@ -186,7 +203,9 @@ with study_file.open("w") as stream:
 
 print(f"Platform : {args.platform}")
 print(f"Nodes    : 1 through {args.N_node_max} (powers of two)")
-print(f"Procs    : {cpu_cores} per node")
+print(f"Target   : {resources['target']}")
+print(f"Procs    : {resources['ranks_per_node']} per node")
+print(f"GPUs     : {resources['gpus_per_node']} per node")
 print(f"Tasks    : {len(steps)}")
 print(f"Skipped  : {len(skipped_tasks)}")
 print(f"Study    : {study_file}")
@@ -210,7 +229,7 @@ if args.dry_run or not steps:
 maestro_python = user_platform_config.get("maestro_python")
 env = os.environ.copy()
 if maestro_python is None:
-    maestro_command = ["maestro", "run", "study.yaml"]
+    maestro_command = ["maestro", "run", study_file.name]
 else:
     maestro_python = Path(maestro_python).expanduser()
     env["PATH"] = f"{maestro_python.parent}:{env['PATH']}"
@@ -219,7 +238,7 @@ else:
         "-m",
         "maestrowf.maestro",
         "run",
-        "study.yaml",
+        study_file.name,
     ]
 subprocess.run(maestro_command, cwd=suite_dir, check=True, env=env)
 
@@ -229,7 +248,8 @@ subprocess.run(maestro_command, cwd=suite_dir, check=True, env=env)
 
 # Save the effective configuration alongside the generated Maestro run.
 maestro_runs = sorted(
-    suite_dir.glob("maestro_run_*"), key=lambda path: path.stat().st_mtime
+    suite_dir.glob(f"maestro_run_{args.platform}_*"),
+    key=lambda path: path.stat().st_mtime,
 )
 if not maestro_runs:
     raise RuntimeError("Maestro did not create a maestro_run_* directory.")
@@ -239,6 +259,8 @@ launch_config = {
     "scheduler": platform["scheduler"],
     "N_node_max": args.N_node_max,
     "cpu_cores_per_node": cpu_cores,
+    **resources,
+    "output_layout": 2,
     "walltime_base_hours": WALLTIME_BASE_HOURS,
     "task_walltimes": case_walltimes,
     "mcdc_python": mcdc_python,
