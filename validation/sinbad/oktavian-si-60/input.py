@@ -828,8 +828,9 @@ simulation.set_tallies([detector_flux_energy])
 # The reference 3-D calculation used five billion histories.  This smaller
 # default checks the model and provides a preliminary spectrum; production C/E
 # requires a convergence study and effective variance reduction.
-simulation.settings.N_particle = 10_000  # _000#_000
+simulation.settings.N_particle = 10_000_000
 simulation.settings.N_batch = 30
+simulation.settings.active_bank_buffer = 1_000
 simulation.settings.output_name = "output"
 
 # Run
