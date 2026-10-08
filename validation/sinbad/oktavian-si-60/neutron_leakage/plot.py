@@ -225,5 +225,5 @@ for axis in (ax_spectrum, ax_ratio):
     axis.grid(which="both", alpha=0.22)
 
 fig.tight_layout()
-fig.savefig("neutron-leakage.png", dpi=200)
+fig.savefig("neutron_leakage.png", dpi=200)
 plt.close(fig)

@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="820" viewBox="0 0 1200 820" role="img" aria-labelledby="title description">
-  <title id="title">OKTAVIAN Si-60 benchmark model</title>
-  <desc id="description">Schematic section showing the silicon sphere, target assembly, 55-degree detector axis, axis-aligned shielding blocks, NaI assembly, and NE-218 detector in their modeled orientations.</desc>
+  <title id="title">OKTAVIAN Si-60 gamma-leakage experiment</title>
+  <desc id="description">Schematic section of the gamma-measurement configuration showing the silicon sphere, target assembly, 55-degree detector axis, shielding blocks, NaI assembly, and downstream NE-218 system.</desc>
 
   <defs>
     <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
@@ -16,7 +16,7 @@
   </defs>
 
   <rect width="1200" height="820" fill="#ffffff"/>
-  <text x="600" y="40" text-anchor="middle" font-family="sans-serif" font-size="27" font-weight="600" fill="#173f5f">OKTAVIAN Si-60 benchmark model</text>
+  <text x="600" y="40" text-anchor="middle" font-family="sans-serif" font-size="27" font-weight="600" fill="#173f5f">OKTAVIAN Si-60 gamma-leakage experiment</text>
   <text x="600" y="66" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#5b6570">Schematic section showing principal geometry and materials · dimensions compressed · orientations preserved</text>
 
   <!-- Global-axis-aligned neutron shielding blocks -->

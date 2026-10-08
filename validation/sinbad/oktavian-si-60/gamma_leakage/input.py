@@ -1,4 +1,4 @@
-"""Detector-explicit 3-D model of the SINBAD OKTAVIAN Si-60 experiment.
+"""Detector-explicit 3-D model of the SINBAD OKTAVIAN Si-60 gamma experiment.
 
 The geometry, materials, D-T source law, detectors, and tally grids are defined
 in this file from the detailed benchmark models.  The circular neutron-emission
@@ -147,136 +147,6 @@ SOURCE_DISK_RADIUS_CM = 0.3
 SOURCE_BLOCK_HALF_WIDTH_CM = 0.5 * np.sqrt(np.pi) * SOURCE_DISK_RADIUS_CM
 SOURCE_BLOCK_THICKNESS_CM = 0.0011
 
-# Ascending boundaries of the 108 measured Si-60 neutron-leakage bins in
-# oksi-exp.md, Table 3. The 4.299 MeV boundary resolves a one-digit mismatch
-# between adjacent limits in the migrated Markdown table.
-EXPERIMENT_ENERGY_EDGES_MEV = np.array(
-    [
-        0.091461,
-        0.096150,
-        0.101080,
-        0.106260,
-        0.111710,
-        0.117440,
-        0.123460,
-        0.129790,
-        0.136440,
-        0.143440,
-        0.150790,
-        0.158530,
-        0.166650,
-        0.175200,
-        0.184180,
-        0.193620,
-        0.203550,
-        0.213990,
-        0.224960,
-        0.236490,
-        0.248620,
-        0.261360,
-        0.274760,
-        0.288850,
-        0.303660,
-        0.319230,
-        0.335600,
-        0.352800,
-        0.370890,
-        0.389910,
-        0.409900,
-        0.430920,
-        0.453010,
-        0.476240,
-        0.500650,
-        0.526320,
-        0.553310,
-        0.581680,
-        0.611500,
-        0.642850,
-        0.675810,
-        0.710460,
-        0.746890,
-        0.785180,
-        0.825440,
-        0.867760,
-        0.912250,
-        0.959020,
-        1.0082,
-        1.0599,
-        1.1142,
-        1.1714,
-        1.2314,
-        1.2945,
-        1.3609,
-        1.4307,
-        1.5040,
-        1.5812,
-        1.6622,
-        1.7475,
-        1.8370,
-        1.9312,
-        2.0302,
-        2.1343,
-        2.2438,
-        2.3588,
-        2.4798,
-        2.6069,
-        2.7405,
-        2.8811,
-        3.0288,
-        3.1841,
-        3.3473,
-        3.5189,
-        3.6993,
-        3.8890,
-        4.0884,
-        4.2990,
-        4.5184,
-        4.7501,
-        4.9936,
-        5.2496,
-        5.5188,
-        5.8017,
-        6.0992,
-        6.4119,
-        6.7406,
-        7.0862,
-        7.4496,
-        7.8315,
-        8.2330,
-        8.6552,
-        9.0989,
-        9.5654,
-        10.056,
-        10.571,
-        11.113,
-        11.683,
-        12.282,
-        12.912,
-        13.574,
-        14.270,
-        15.002,
-        15.771,
-        16.579,
-        17.429,
-        18.323,
-        19.262,
-        20.250,
-    ]
-)
-
-VALIDATION_ENERGY_MIN_MEV = 3.0288
-VALIDATION_ENERGY_MAX_MEV = 13.574
-VALIDATION_ENERGY_EDGES_MEV = np.concatenate(
-    (
-        [VALIDATION_ENERGY_MIN_MEV],
-        EXPERIMENT_ENERGY_EDGES_MEV[
-            (EXPERIMENT_ENERGY_EDGES_MEV > VALIDATION_ENERGY_MIN_MEV)
-            & (EXPERIMENT_ENERGY_EDGES_MEV < VALIDATION_ENERGY_MAX_MEV)
-        ],
-        [VALIDATION_ENERGY_MAX_MEV],
-    )
-)
-
 ROOM_TEMPERATURE_K = 293.6
 
 # ======================================================================================
@@ -360,7 +230,7 @@ def union(regions):
 # Set model
 # ======================================================================================
 
-simulation = mcdc.Simulation("SINBAD OKTAVIAN Si-60 detector-explicit 3-D model")
+simulation = mcdc.Simulation("SINBAD OKTAVIAN Si-60 gamma-leakage experiment")
 
 # Materials
 # The detailed benchmark model specifies atomic densities in atoms/(barn cm).
@@ -740,7 +610,7 @@ cells = [
     mcdc.Cell(name=name, region=region, fill=fill)
     for name, region, fill in regions_and_fills
 ]
-detector_cell = cells[-1]
+nai_detector_cell = cells[-2]
 
 problem_boundary = mcdc.Surface.Sphere(
     name="Problem boundary", radius=2000.0, boundary_condition="vacuum"
@@ -812,26 +682,14 @@ simulation.set_sources(sources)
 # Set tallies, settings, and run MC/DC
 # ======================================================================================
 
-# Tallies
-# The detector-cell track-length flux is the detailed model's neutron signal.
-# The tally uses complete experimental bins from 3.0288 to 13.574 MeV.
-detector_flux_energy = mcdc.Tally(
-    name="neutron_detector_flux_energy",
-    cell=detector_cell,
-    particle_type="neutron",
-    energy=VALIDATION_ENERGY_EDGES_MEV * 1.0e6,
-    scores=["flux"],
+# The benchmark observable is the neutron-induced photon spectrum in the NaI
+# detector.  MC/DC does not yet support coupled neutron-photon production and
+# photon transport, so defining a neutron tally here would not represent the
+# measured quantity.  Keep the complete experiment-specific geometry and
+# neutron source above ready for the photon-transport implementation, but stop
+# explicitly instead of producing a misleading validation result.
+raise NotImplementedError(
+    "The OKTAVIAN gamma-leakage case requires neutron-induced photon "
+    "production, photon transport, and a photon tally, which MC/DC does not "
+    "yet provide."
 )
-simulation.set_tallies([detector_flux_energy])
-
-# Settings
-# The reference 3-D calculation used five billion histories.  This smaller
-# default checks the model and provides a preliminary spectrum; production C/E
-# requires a convergence study and effective variance reduction.
-simulation.settings.N_particle = 10_000_000
-simulation.settings.N_batch = 30
-simulation.settings.active_bank_buffer = 1_000
-simulation.settings.output_name = "output"
-
-# Run
-simulation.run()
