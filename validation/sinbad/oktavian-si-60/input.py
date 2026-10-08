@@ -1,14 +1,18 @@
 """Detector-explicit 3-D model of the SINBAD OKTAVIAN Si-60 experiment.
 
 The geometry, materials, D-T source law, detectors, and tally grids are defined
-in this file from the detailed benchmark model.  The only deliberate geometric
-source approximation is replacement of the 0.3 cm-radius source disk by a point
-at its center; see README.md before interpreting C/E results.
+in this file from the detailed benchmark models.  The circular neutron-emission
+spot is represented by an equal-area rectangular block spanning the modeled
+Ti-T target thickness; see README.md before interpreting C/E results.
 """
 
 import numpy as np
 
 import mcdc
+
+# ======================================================================================
+# Benchmark data
+# ======================================================================================
 
 # Energy-angle D-T source law from the detailed benchmark model.  Direction
 # cosine is measured from the deuteron-beam axis (+y).  The tabulated relative
@@ -137,7 +141,11 @@ D_T_ENERGIES_MEV = np.array(
         14.89,
     ]
 )
-SOURCE_ANGLE_SUBDIVISIONS = 8
+SOURCE_ANGLE_BINS = 32
+SOURCE_ENERGY_SAMPLES_PER_ANGLE = 72
+SOURCE_DISK_RADIUS_CM = 0.3
+SOURCE_BLOCK_HALF_WIDTH_CM = 0.5 * np.sqrt(np.pi) * SOURCE_DISK_RADIUS_CM
+SOURCE_BLOCK_THICKNESS_CM = 0.0011
 
 # Ascending boundaries of the 108 measured Si-60 neutron-leakage bins in
 # oksi-exp.md, Table 3. The 4.299 MeV boundary resolves a one-digit mismatch
@@ -256,7 +264,24 @@ EXPERIMENT_ENERGY_EDGES_MEV = np.array(
     ]
 )
 
+VALIDATION_ENERGY_MIN_MEV = 3.0288
+VALIDATION_ENERGY_MAX_MEV = 13.574
+VALIDATION_ENERGY_EDGES_MEV = np.concatenate(
+    (
+        [VALIDATION_ENERGY_MIN_MEV],
+        EXPERIMENT_ENERGY_EDGES_MEV[
+            (EXPERIMENT_ENERGY_EDGES_MEV > VALIDATION_ENERGY_MIN_MEV)
+            & (EXPERIMENT_ENERGY_EDGES_MEV < VALIDATION_ENERGY_MAX_MEV)
+        ],
+        [VALIDATION_ENERGY_MAX_MEV],
+    )
+)
+
 ROOM_TEMPERATURE_K = 293.6
+
+# ======================================================================================
+# Helper functions
+# ======================================================================================
 
 
 def material(name, composition):
@@ -331,25 +356,13 @@ def union(regions):
     return result
 
 
-def interpolated_time_grid():
-    """Return the detailed model's MCNP time grid converted from shakes to s."""
-    sections = [
-        (0.0, 10.0, 0),
-        (10.0, 20.0, 99),
-        (20.0, 22.0, 39),
-        (22.0, 42.0, 39),
-        (42.0, 102.0, 29),
-        (102.0, 1102.0, 124),
-        (1102.0, 10000.0, 249),
-    ]
-    pieces = [
-        np.linspace(start, stop, insertions + 2) for start, stop, insertions in sections
-    ]
-    return np.concatenate([pieces[0], *(piece[1:] for piece in pieces[1:])]) * 1.0e-8
-
+# ======================================================================================
+# Set model
+# ======================================================================================
 
 simulation = mcdc.Simulation("SINBAD OKTAVIAN Si-60 detector-explicit 3-D model")
 
+# Materials
 # The detailed benchmark model specifies atomic densities in atoms/(barn cm).
 # Its natural-element carbon and argon entries are expanded here because MC/DC
 # consumes isotope tables.  The fractions are the natural abundances used by
@@ -416,6 +429,9 @@ iron = material("Collimator iron", iron_composition)
 paraffin_composition = {"H1": 8.2558e-2, "H2": 9.4952e-6}
 paraffin_composition.update(split_natural_element(3.9700e-2, carbon_abundances))
 paraffin = material("C25H52 paraffin", paraffin_composition)
+polyethylene_composition = {"H1": 8.0704e-2}
+polyethylene_composition.update(split_natural_element(4.0358e-2, carbon_abundances))
+polyethylene = material("Gamma-collimator polyethylene", polyethylene_composition)
 heavy_concrete = material(
     "Heavy concrete",
     {
@@ -466,6 +482,44 @@ ordinary_concrete = material(
         "Fe58": 9.4284e-7,
     },
 )
+lead = material(
+    "Gamma-collimator lead",
+    {
+        "Pb204": 4.6142e-4,
+        "Pb206": 7.9429e-3,
+        "Pb207": 7.2838e-3,
+        "Pb208": 1.7270e-2,
+    },
+)
+stainless_steel_316 = material(
+    "Gamma-collimator SUS-316 stainless steel",
+    {
+        "Si28": 1.5662e-3,
+        "Si29": 7.9529e-5,
+        "Si30": 5.2426e-5,
+        "Cr50": 6.7754e-4,
+        "Cr52": 1.3066e-2,
+        "Cr53": 1.4815e-3,
+        "Cr54": 3.6879e-4,
+        "Mn55": 1.7363e-3,
+        "Fe54": 3.2697e-3,
+        "Fe56": 5.1327e-2,
+        "Fe57": 1.1854e-3,
+        "Fe58": 1.5775e-4,
+        "Ni58": 6.6383e-3,
+        "Ni60": 2.5571e-3,
+        "Ni61": 1.1115e-4,
+        "Ni62": 3.5441e-4,
+        "Ni64": 9.0257e-5,
+        "Mo92": 1.8443e-4,
+        "Mo94": 1.1496e-4,
+        "Mo95": 1.9786e-4,
+        "Mo96": 2.0730e-4,
+        "Mo97": 1.1869e-4,
+        "Mo98": 2.9989e-4,
+        "Mo100": 1.1968e-4,
+    },
+)
 detector_composition = {"H1": 4.5042e-2, "H2": 5.1805e-6}
 detector_composition.update(split_natural_element(5.7890e-2, carbon_abundances))
 ne218 = material("NE-218 liquid scintillator", detector_composition)
@@ -478,6 +532,7 @@ silicon = material(
     {"Si28": 2.5511e-2, "Si29": 1.2954e-3, "Si30": 8.5391e-4},
 )
 
+# Surfaces and regions
 # Sample, source-target assembly, and reentrant beam duct.  The coordinate
 # system follows the detailed benchmark model, with the deuteron beam along +y.
 target_front = mcdc.Surface.PlaneY(name="Target front", y=0.0)
@@ -524,34 +579,16 @@ outer_vessel_region = (
 )
 
 # The neutron and gamma detector line is 55 degrees from +y.  These are the
-# local axes encoded by the detailed models' transformation card.
+# local axes encoded by the detailed models' transformation card.  The complete
+# gamma-analysis configuration is used below: its NaI collimator occupies the
+# space assigned to the alternative iron/paraffin pre-collimator in the
+# neutron-only model, while retaining the main neutron collimator, housing, and
+# NE-218 detector.
 angle = np.deg2rad(55.0)
 local_x = np.array([0.0, 0.0, 1.0])
 local_y = np.array([-np.sin(angle), np.cos(angle), 0.0])
 local_z = np.cross(local_x, local_y)
 detector_basis = (local_x, local_y, local_z)
-
-precollimator_550 = plane_along("Precollimator front", local_y, 550.0)
-precollimator_565 = plane_along("Precollimator layer interface", local_y, 565.0)
-precollimator_660 = plane_along("Precollimator back", local_y, 660.0)
-precollimator_aperture = mcdc.Surface.Cylinder(
-    name="Precollimator aperture", axis=local_y, radius=18.5
-)
-precollimator_outer = mcdc.Surface.Cylinder(
-    name="Precollimator outer radius", axis=local_y, radius=50.0
-)
-precollimator_iron_region = (
-    +precollimator_550
-    & -precollimator_565
-    & +precollimator_aperture
-    & -precollimator_outer
-)
-precollimator_paraffin_region = (
-    +precollimator_565
-    & -precollimator_660
-    & +precollimator_aperture
-    & -precollimator_outer
-)
 
 inner_frustum = frustum_surface(
     "Inner collimator frustum", local_y, 550.0, 550.0, 18.5, 7.0
@@ -582,10 +619,37 @@ housing_box_27 = local_box_region(
 detector_front = plane_along("NE-218 front", local_y, 1094.9)
 detector_back = plane_along("NE-218 back", local_y, 1100.0)
 detector_radius = mcdc.Surface.Cylinder(name="NE-218 radius", axis=local_y, radius=6.35)
+nai_collimator_435 = plane_along("Gamma collimator 435 cm", local_y, 435.0)
+nai_collimator_440 = plane_along("Gamma collimator 440 cm", local_y, 440.0)
+nai_collimator_485 = plane_along("Gamma collimator 485 cm", local_y, 485.0)
+nai_collimator_545 = plane_along("Gamma collimator 545 cm", local_y, 545.0)
+nai_collimator_560 = plane_along("Gamma collimator 560 cm", local_y, 560.0)
 nai_detector_front = plane_along("NaI detector front", local_y, 580.0)
 nai_detector_back = plane_along("NaI detector back", local_y, 587.1)
+nai_collimator_655 = plane_along("Gamma collimator 655 cm", local_y, 655.0)
 nai_detector_radius = mcdc.Surface.Cylinder(
     name="NaI detector radius", axis=local_y, radius=3.81
+)
+nai_lead_inner = mcdc.Surface.Cylinder(
+    name="NaI lead inner radius", axis=local_y, radius=4.0
+)
+nai_lead_outer = mcdc.Surface.Cylinder(
+    name="NaI lead outer radius", axis=local_y, radius=6.0
+)
+nai_concrete_inner = mcdc.Surface.Cylinder(
+    name="NaI concrete inner radius", axis=local_y, radius=42.0
+)
+nai_polyethylene_inner = mcdc.Surface.Cylinder(
+    name="NaI polyethylene inner radius", axis=local_y, radius=25.0
+)
+nai_collimator_outer = mcdc.Surface.Cylinder(
+    name="NaI collimator outer radius", axis=local_y, radius=50.0
+)
+nai_inner_frustum = frustum_surface(
+    "NaI inner collimator frustum", local_y, 0.0, 545.0, 60.0, 4.0
+)
+nai_outer_frustum = frustum_surface(
+    "NaI outer collimator frustum", local_y, 0.0, 545.0, 60.0, 6.0
 )
 
 collimator_iron_region = shield_box_20 & +inner_frustum & -outer_frustum
@@ -601,7 +665,50 @@ paraffin_housing_region = (
 concrete_housing_region = housing_box_26 & ~housing_box_27 & +inner_frustum
 detector_region = +detector_front & -detector_back & -detector_radius
 nai_detector_region = +nai_detector_front & -nai_detector_back & -nai_detector_radius
+nai_polyethylene_region = (
+    +nai_collimator_435
+    & -nai_collimator_545
+    & +nai_polyethylene_inner
+    & -nai_collimator_outer
+)
+nai_concrete_region = (
+    -nai_detector_front
+    & +nai_collimator_560
+    & +nai_concrete_inner
+    & -nai_collimator_outer
+) | (
+    +nai_collimator_440
+    & -nai_collimator_485
+    & +nai_outer_frustum
+    & -nai_polyethylene_inner
+)
+nai_paraffin_region = (
+    -nai_collimator_545
+    & +nai_collimator_485
+    & +nai_outer_frustum
+    & -nai_polyethylene_inner
+) | (
+    -nai_collimator_outer
+    & -nai_collimator_655
+    & +nai_collimator_560
+    & ~nai_concrete_region
+    & +nai_lead_outer
+)
+nai_lead_region = (
+    +nai_collimator_545 & -nai_collimator_655 & +nai_lead_inner & -nai_lead_outer
+) | (
+    +nai_inner_frustum & -nai_outer_frustum & +nai_collimator_435 & -nai_collimator_545
+)
+nai_stainless_steel_region = (
+    -nai_collimator_560 & +nai_collimator_545 & -nai_collimator_outer & +nai_lead_outer
+) | (
+    +nai_collimator_435
+    & -nai_collimator_440
+    & +nai_outer_frustum
+    & -nai_polyethylene_inner
+)
 
+# Cells
 regions_and_fills = [
     ("Ti-T target", target_region, tritium_titanium),
     ("Copper target backing", backing_region, copper),
@@ -610,8 +717,8 @@ regions_and_fills = [
     ("Inner vessel and duct wall", inner_vessel_region, stainless_steel),
     ("Granular silicon pile", sample_region, silicon),
     ("Outer stainless-steel vessel", outer_vessel_region, stainless_steel),
-    ("Iron pre-collimator layer", precollimator_iron_region, iron),
-    ("Paraffin pre-collimator layer", precollimator_paraffin_region, paraffin),
+    ("Gamma-collimator polyethylene", nai_polyethylene_region, polyethylene),
+    ("Gamma-collimator paraffin", nai_paraffin_region, paraffin),
     ("Iron main collimator", collimator_iron_region, iron),
     ("Main heavy-concrete shield", collimator_heavy_region, heavy_concrete),
     ("Upstream heavy-concrete shield", upstream_heavy_region, heavy_concrete),
@@ -619,6 +726,13 @@ regions_and_fills = [
     ("Downstream iron collimator", downstream_iron_region, iron),
     ("Paraffin detector housing", paraffin_housing_region, paraffin),
     ("Concrete detector housing", concrete_housing_region, heavy_concrete),
+    ("Gamma-collimator lead", nai_lead_region, lead),
+    (
+        "Gamma-collimator stainless steel",
+        nai_stainless_steel_region,
+        stainless_steel_316,
+    ),
+    ("Gamma-collimator concrete", nai_concrete_region, ordinary_concrete),
     ("NaI gamma detector", nai_detector_region, nai),
     ("NE-218 detector", detector_region, ne218),
 ]
@@ -641,33 +755,50 @@ cells.append(
 )
 simulation.set_model(cells)
 
+# ======================================================================================
+# Set source
+# ======================================================================================
+
 # MC/DC samples direction and energy independently within a Source object.  A
 # mixture of narrow polar-cosine intervals preserves the detailed source's
-# continuous yield and energy correlation to controllable angular resolution.
+# continuous yield and energy correlation.  The angular domain is organized
+# into 32 equal direction-cosine bins, with 72 paired energy-angle samples in
+# each bin.  The energy assigned to each narrow interval is obtained from the
+# supplied E(mu) relation; no unsupported energy spread is introduced at a
+# fixed direction cosine.
+# The equal-area square source footprint preserves the supplied disk area; its
+# finite y interval spans the complete 0.0011 cm modeled Ti-T target thickness.
 sources = []
-for index in range(len(D_T_DIRECTION_COSINES) - 1):
-    cosine_edges = np.linspace(
-        D_T_DIRECTION_COSINES[index],
-        D_T_DIRECTION_COSINES[index + 1],
-        SOURCE_ANGLE_SUBDIVISIONS + 1,
+angle_edges = np.linspace(-1.0, 1.0, SOURCE_ANGLE_BINS + 1)
+for angle_index in range(SOURCE_ANGLE_BINS):
+    correlated_cosine_edges = np.linspace(
+        angle_edges[angle_index],
+        angle_edges[angle_index + 1],
+        SOURCE_ENERGY_SAMPLES_PER_ANGLE + 1,
     )
-    for subindex in range(SOURCE_ANGLE_SUBDIVISIONS):
-        lower = cosine_edges[subindex]
-        upper = cosine_edges[subindex + 1]
+    for energy_index in range(SOURCE_ENERGY_SAMPLES_PER_ANGLE):
+        lower = correlated_cosine_edges[energy_index]
+        upper = correlated_cosine_edges[energy_index + 1]
         midpoint = 0.5 * (lower + upper)
-        fraction = (midpoint - D_T_DIRECTION_COSINES[index]) / (
-            D_T_DIRECTION_COSINES[index + 1] - D_T_DIRECTION_COSINES[index]
+        relative_yield = np.interp(
+            midpoint,
+            D_T_DIRECTION_COSINES,
+            D_T_RELATIVE_YIELDS,
         )
-        relative_yield = (1.0 - fraction) * D_T_RELATIVE_YIELDS[
-            index
-        ] + fraction * D_T_RELATIVE_YIELDS[index + 1]
-        energy_mev = (1.0 - fraction) * D_T_ENERGIES_MEV[
-            index
-        ] + fraction * D_T_ENERGIES_MEV[index + 1]
+        energy_mev = np.interp(
+            midpoint,
+            D_T_DIRECTION_COSINES,
+            D_T_ENERGIES_MEV,
+        )
         sources.append(
             mcdc.Source(
-                name=f"D-T angle interval {index + 1}.{subindex + 1}",
-                position=[0.0, 0.001, 0.0],
+                name=(
+                    f"D-T angle-energy interval "
+                    f"{angle_index + 1}.{energy_index + 1}"
+                ),
+                x=[-SOURCE_BLOCK_HALF_WIDTH_CM, SOURCE_BLOCK_HALF_WIDTH_CM],
+                y=[0.0, SOURCE_BLOCK_THICKNESS_CM],
+                z=[-SOURCE_BLOCK_HALF_WIDTH_CM, SOURCE_BLOCK_HALF_WIDTH_CM],
                 direction=[0.0, 1.0, 0.0],
                 polar_cosine=[lower, upper],
                 azimuthal=[0.0, 2.0 * np.pi],
@@ -677,24 +808,23 @@ for index in range(len(D_T_DIRECTION_COSINES) - 1):
         )
 simulation.set_sources(sources)
 
+# ======================================================================================
+# Set tallies, settings, and run MC/DC
+# ======================================================================================
+
+# Tallies
 # The detector-cell track-length flux is the detailed model's neutron signal.
-# Both the measured-energy bins and the original time-of-flight grid are scored.
+# The tally uses complete experimental bins from 3.0288 to 13.574 MeV.
 detector_flux_energy = mcdc.Tally(
     name="neutron_detector_flux_energy",
     cell=detector_cell,
     particle_type="neutron",
-    energy=EXPERIMENT_ENERGY_EDGES_MEV * 1.0e6,
+    energy=VALIDATION_ENERGY_EDGES_MEV * 1.0e6,
     scores=["flux"],
 )
-detector_flux_tof = mcdc.Tally(
-    name="neutron_detector_flux_tof",
-    cell=detector_cell,
-    particle_type="neutron",
-    time=interpolated_time_grid(),
-    scores=["flux"],
-)
-simulation.set_tallies([detector_flux_energy, detector_flux_tof])
+simulation.set_tallies([detector_flux_energy])
 
+# Settings
 # The reference 3-D calculation used five billion histories.  This smaller
 # default checks the model and provides a preliminary spectrum; production C/E
 # requires a convergence study and effective variance reduction.
@@ -702,4 +832,5 @@ simulation.settings.N_particle = 10_000  # _000#_000
 simulation.settings.N_batch = 30
 simulation.settings.output_name = "output"
 
+# Run
 simulation.run()
