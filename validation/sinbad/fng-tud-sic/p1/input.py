@@ -323,6 +323,19 @@ sic = mcdc.Material(
     },
     temperature=293.6,
 )
+source_air = mcdc.Material(
+    name="Source-side air",
+    nuclide_composition={
+        "N14": 4.614e-5 * 0.788903,
+        "O16": 4.614e-5 * 0.211097,
+    },
+    temperature=293.6,
+)
+detector_clearance_air = mcdc.Material(
+    name="Detector-clearance air",
+    nuclide_composition={"N14": 3.969077e-5, "O16": 1.062057e-5},
+    temperature=293.6,
+)
 ne213 = mcdc.Material(
     name="NE213 active scintillator",
     nuclide_composition={"H1": 4.820e-2, "C12": 3.976e-2},
@@ -366,7 +379,9 @@ active_region = -detector_radius & +detector_bottom & -detector_top
 light_guide_region = -detector_radius & +detector_top & -z_max
 clearance_region = +detector_radius & -clearance_radius & +detector_bottom & -z_max
 
-source_side_air = mcdc.Cell(name="Source-side air", region=world_region & ~block_region)
+source_side_air = mcdc.Cell(
+    name="Source-side air", region=world_region & ~block_region, fill=source_air
+)
 sic_block = mcdc.Cell(
     name="SiC block", region=block_region & ~insertion_region, fill=sic
 )
@@ -374,7 +389,9 @@ detector_cell = mcdc.Cell(name="NE213 active volume", region=active_region, fill
 light_guide_cell = mcdc.Cell(
     name="Polyethylene light guide", region=light_guide_region, fill=polyethylene
 )
-clearance_cell = mcdc.Cell(name="Detector clearance", region=clearance_region)
+clearance_cell = mcdc.Cell(
+    name="Detector clearance", region=clearance_region, fill=detector_clearance_air
+)
 simulation.set_model(
     [source_side_air, sic_block, detector_cell, light_guide_cell, clearance_cell]
 )
