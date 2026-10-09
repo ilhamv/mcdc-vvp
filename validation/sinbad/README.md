@@ -33,22 +33,22 @@ Each runnable case directory contains an `input.py` and `plot.py`. Benchmark-lev
 ```yaml
 oktavian-si-60:
   neutron_leakage:
-    N_particle: 10_000_000
-    walltime_factor: 1.0
+    N_particle: 1_000_000_000
+    walltime_factor: 0.34
 
 fng-tud-sic:
   p1:
-    N_particle: 1_000_000
-    walltime_factor: 1.0
+    N_particle: 1_000_000_000
+    walltime_factor: 0.01
   p2:
-    N_particle: 1_000_000
-    walltime_factor: 1.0
+    N_particle: 1_000_000_000
+    walltime_factor: 0.00875
   p3:
-    N_particle: 1_000_000
-    walltime_factor: 1.0
+    N_particle: 1_000_000_000
+    walltime_factor: 0.00875
   p4:
-    N_particle: 1_000_000
-    walltime_factor: 1.0
+    N_particle: 1_000_000_000
+    walltime_factor: 0.00875
 ```
 
 Only cases with a directly calculable benchmark observable should be enabled. The current task file contains the five neutron-spectrum cases supported by this suite.
@@ -66,10 +66,12 @@ python launch.py
 Launch on a configured HPC platform with:
 
 ```bash
-python launch.py --platform dane --N_node 1 --walltime 24
+python launch.py --platform dane --N_node 10 --walltime 24
 ```
 
 `N_node` is the number of nodes assigned to every case in that launch, with all configured CPU cores used on each node. `walltime` is the base duration in hours; each case receives `walltime * walltime_factor`, rounded up to the scheduler resolution and limited by the platform maximum. Local execution requires one node and ignores walltime.
+
+With the configured 24-hour base walltime, the factors above request 8 hours 9 minutes 36 seconds for OKTAVIAN, 14 minutes 24 seconds for FNG/TUD P1, and 12 minutes 37 seconds for FNG/TUD P2-P4. These values are calibrated for the 10-node Dane configuration and include at least a 50% buffer above the observed run time for every case.
 
 The platform and user settings come from `configs/platform_config.py` and `configs/user_config.py`. The effective node count, base walltime, scaled case walltimes, process count, platform, and Python executable are recorded in each Maestro run's `launch_config.yaml`. The selected MC/DC environment must be able to locate the required native nuclear-data library.
 
