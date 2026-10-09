@@ -34,6 +34,7 @@ Target release: 0.16.0, the first versioned MC/DC-VVP release.
 - Organize fixed-source cases around consistent input, reference, processing, and optional plotting scripts, from [@ilhamv]
 - Reorganize legacy neutron benchmarks as code-to-code verification cases without separate continuous-energy and multigroup directory levels, from [@ilhamv]
 - Use `N_node` for HPC resource selection, apply case-specific `walltime_factor` values to suite base walltimes, and skip completed tasks while retaining partial results, from [@ilhamv]
+- Refine the FNG/TUD SiC correlated source representation to 32 angular intervals with 72-point conditional energy distributions, from [@ilhamv]
 - Organize processed results into convergence, reference, and comparison outputs and collect them through the top-level processing workflow, from [@ilhamv]
 - Consolidate the canonical SHEM-361 multigroup dataset under the analytical fixed-source suite for reuse by all SHEM-361 cases, from [@ilhamv]
 

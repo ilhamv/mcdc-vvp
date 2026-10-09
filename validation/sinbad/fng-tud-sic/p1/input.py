@@ -10,6 +10,7 @@ import mcdc
 
 DETECTOR_LABEL = "P1"
 DETECTOR_DEPTH_CM = 12.70
+SOURCE_ENERGY_POINTS = 72
 
 # The duplicated 6.502 MeV boundary in the migrated experimental table is
 # restored to 6.603 MeV from the surrounding regular sequence.
@@ -400,35 +401,36 @@ simulation.set_model(
 # Correlated D-T source
 # ======================================================================================
 
-source_mu_edges = np.empty(SOURCE_MU.size + 1)
-source_mu_edges[0] = -1.0
-source_mu_edges[-1] = 1.0
-source_mu_edges[1:-1] = 0.5 * (SOURCE_MU[:-1] + SOURCE_MU[1:])
+# At each of the 19 benchmark polar-cosine nodes, reconstruct a 72-point
+# conditional energy PDF from the derived support, mean, and standard deviation.
+# MC/DC samples the piecewise-linear angular PDF and uses unit-base interpolation
+# between the neighboring conditional energy PDFs.
+source_energy_fraction = np.linspace(0.0, 1.0, SOURCE_ENERGY_POINTS)
+source_energy_grid_mev = (
+    SOURCE_ENERGY_MIN_MEV[:, None]
+    + source_energy_fraction * (SOURCE_ENERGY_MAX_MEV - SOURCE_ENERGY_MIN_MEV)[:, None]
+)
+source_energy_pdf = np.exp(
+    -0.5
+    * (
+        (source_energy_grid_mev - SOURCE_ENERGY_MEAN_MEV[:, None])
+        / SOURCE_ENERGY_SDEV_MEV[:, None]
+    )
+    ** 2
+)
+source_energy_at_polar_cosine = np.stack(
+    [source_energy_grid_mev * 1.0e6, source_energy_pdf / 1.0e6], axis=1
+)
 
-sources = []
-for index in range(SOURCE_MU.size):
-    energy_mev = np.linspace(
-        SOURCE_ENERGY_MIN_MEV[index], SOURCE_ENERGY_MAX_MEV[index], 44
-    )
-    energy_pdf = np.exp(
-        -0.5
-        * ((energy_mev - SOURCE_ENERGY_MEAN_MEV[index]) / SOURCE_ENERGY_SDEV_MEV[index])
-        ** 2
-    )
-    mu_lower = source_mu_edges[index]
-    mu_upper = source_mu_edges[index + 1]
-    sources.append(
-        mcdc.Source(
-            name=f"D-T angular interval {index + 1}",
-            position=[0.0, 0.0, 0.0],
-            direction=[0.0, 1.0, 0.0],
-            polar_cosine=[mu_lower, mu_upper],
-            azimuthal=[0.0, 2.0 * np.pi],
-            energy=np.array([energy_mev * 1.0e6, energy_pdf / 1.0e6]),
-            probability=SOURCE_RELATIVE_YIELD[index] * (mu_upper - mu_lower),
-        )
-    )
-simulation.set_sources(sources)
+source = mcdc.Source(
+    name="D-T neutron source",
+    position=[0.0, 0.0, 0.0],
+    direction=[0.0, 1.0, 0.0],
+    polar_cosine=(SOURCE_MU, SOURCE_RELATIVE_YIELD),
+    azimuthal=[0.0, 2.0 * np.pi],
+    energy_at_polar_cosine=source_energy_at_polar_cosine,
+)
+simulation.set_sources([source])
 
 # ======================================================================================
 # Tally, settings, and run
