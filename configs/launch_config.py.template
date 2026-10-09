@@ -17,6 +17,13 @@ LAUNCH_CONFIG = {
         "N_node": 20,
         "walltime": 24.0,
     },
+    "validation/sinbad": {
+        "enabled": False,
+        "platform": "dane",
+        "N_node": 10,
+        "walltime": 24.0,
+        "sinbad_root": None,
+    },
     "performance/serial": {
         "enabled": False,
         "platform": "dane",

@@ -101,6 +101,7 @@ python process.py
 
 For each suite registered in `configs/launch_config.py`, the top-level processor invokes the suite processor when a Maestro run is available and then moves the generated `results/` directory under the same suite path in the top-level `results/` directory.
 An existing suite `results/` directory can still be collected when no Maestro run is present, and suites with neither are skipped.
+The SINBAD suite additionally requires `sinbad_root` in `configs/launch_config.py` so its processor can read the locally available licensed experimental tables.
 Within each suite, `convergence/` contains study-wide convergence figures and `comparison/` contains plots or animations from the largest-statistics result.
 These directories apply to verification; parallel performance instead combines the latest saved study per platform under `results/<comparison>/`, as described in its suite README.
 Collecting a suite results replaces that suite's existing top-level ones.
@@ -151,7 +152,9 @@ The arithmetic mean of all participating code estimates at the largest sampling 
 
 Validation suites compare MC/DC predictions against experimental measurements.
 
-*Coming soon.*
+| Physics | Suite | Description |
+| :------ | :---- | :---------- |
+| Neutron shielding | [SINBAD](validation/sinbad/README.md) | Experimental neutron leakage and flux spectra for the OKTAVIAN Si-60 and FNG/TUD SiC assemblies. |
 
 ### Performance
 
