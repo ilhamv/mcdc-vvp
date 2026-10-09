@@ -14,10 +14,10 @@ import mcdc
 # Benchmark data
 # ======================================================================================
 
-# Energy-angle D-T source law from the detailed benchmark model.  Direction
-# cosine is measured from the deuteron-beam axis (+y).  The tabulated relative
-# yield and energy are linearly interpolated below and discretized into narrow
-# direction-cosine intervals, preserving their correlation.
+# Tabulated D-T source law used by the detailed neutron-analysis model.
+# Direction cosine is measured from the deuteron-beam axis (+y).  The same law
+# is used here as a fully supported approximation to the gamma-analysis model's
+# custom deuteron-transport source routine.
 D_T_DIRECTION_COSINES = np.array(
     [
         -1.0000,
@@ -141,8 +141,6 @@ D_T_ENERGIES_MEV = np.array(
         14.89,
     ]
 )
-SOURCE_ANGLE_BINS = 32
-SOURCE_ENERGY_SAMPLES_PER_ANGLE = 72
 SOURCE_DISK_RADIUS_CM = 0.3
 SOURCE_BLOCK_HALF_WIDTH_CM = 0.5 * np.sqrt(np.pi) * SOURCE_DISK_RADIUS_CM
 SOURCE_BLOCK_THICKNESS_CM = 0.0011
@@ -629,54 +627,23 @@ simulation.set_model(cells)
 # Set source
 # ======================================================================================
 
-# MC/DC samples direction and energy independently within a Source object.  A
-# mixture of narrow polar-cosine intervals preserves the detailed source's
-# continuous yield and energy correlation.  The angular domain is organized
-# into 32 equal direction-cosine bins, with 72 paired energy-angle samples in
-# each bin.  The energy assigned to each narrow interval is obtained from the
-# supplied E(mu) relation; no unsupported energy spread is introduced at a
-# fixed direction cosine.
+# Sample the piecewise-linear angular density and obtain the neutron
+# energy by interpolation over the same direction-cosine interval.  This
+# preserves its deterministic energy-angle correlation.  It intentionally does
+# not reproduce the detailed gamma-analysis model's deuteron-transport source.
 # The equal-area square source footprint preserves the supplied disk area; its
 # finite y interval spans the complete 0.0011 cm modeled Ti-T target thickness.
-sources = []
-angle_edges = np.linspace(-1.0, 1.0, SOURCE_ANGLE_BINS + 1)
-for angle_index in range(SOURCE_ANGLE_BINS):
-    correlated_cosine_edges = np.linspace(
-        angle_edges[angle_index],
-        angle_edges[angle_index + 1],
-        SOURCE_ENERGY_SAMPLES_PER_ANGLE + 1,
-    )
-    for energy_index in range(SOURCE_ENERGY_SAMPLES_PER_ANGLE):
-        lower = correlated_cosine_edges[energy_index]
-        upper = correlated_cosine_edges[energy_index + 1]
-        midpoint = 0.5 * (lower + upper)
-        relative_yield = np.interp(
-            midpoint,
-            D_T_DIRECTION_COSINES,
-            D_T_RELATIVE_YIELDS,
-        )
-        energy_mev = np.interp(
-            midpoint,
-            D_T_DIRECTION_COSINES,
-            D_T_ENERGIES_MEV,
-        )
-        sources.append(
-            mcdc.Source(
-                name=(
-                    f"D-T angle-energy interval "
-                    f"{angle_index + 1}.{energy_index + 1}"
-                ),
-                x=[-SOURCE_BLOCK_HALF_WIDTH_CM, SOURCE_BLOCK_HALF_WIDTH_CM],
-                y=[0.0, SOURCE_BLOCK_THICKNESS_CM],
-                z=[-SOURCE_BLOCK_HALF_WIDTH_CM, SOURCE_BLOCK_HALF_WIDTH_CM],
-                direction=[0.0, 1.0, 0.0],
-                polar_cosine=[lower, upper],
-                azimuthal=[0.0, 2.0 * np.pi],
-                energy=energy_mev * 1.0e6,
-                probability=relative_yield * (upper - lower),
-            )
-        )
-simulation.set_sources(sources)
+source = mcdc.Source(
+    name="D-T neutron source",
+    x=[-SOURCE_BLOCK_HALF_WIDTH_CM, SOURCE_BLOCK_HALF_WIDTH_CM],
+    y=[0.0, SOURCE_BLOCK_THICKNESS_CM],
+    z=[-SOURCE_BLOCK_HALF_WIDTH_CM, SOURCE_BLOCK_HALF_WIDTH_CM],
+    direction=[0.0, 1.0, 0.0],
+    polar_cosine=(D_T_DIRECTION_COSINES, D_T_RELATIVE_YIELDS),
+    azimuthal=[0.0, 2.0 * np.pi],
+    energy_at_polar_cosine=D_T_ENERGIES_MEV * 1.0e6,
+)
+simulation.set_sources([source])
 
 # ======================================================================================
 # Set tallies, settings, and run MC/DC
