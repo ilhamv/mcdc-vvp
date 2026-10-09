@@ -10,6 +10,8 @@ The experiment was driven by a D-T source 5.3 cm in front of the block, produced
 
 The benchmark quantities of interest are the unfolded neutron and neutron-induced photon flux spectra averaged over the active NE213 volume and normalized per source neutron. The neutron comparison uses the published bin boundaries from 0.999 to 15.22 MeV and the detector-cell track-length tally. The experimental one-standard-deviation uncertainties include spectrum measurement, background subtraction, and source monitoring; the package reports interval-dependent relative uncertainties rather than a value for every bin [1]. No covariance matrix or prescribed model-form uncertainties are available, so the plotted C/E values support a quantitative binwise comparison but not a covariance-aware goodness-of-fit test. Photon closure remains pending photon production and transport in MC/DC.
 
+Each neutron calculation uses an energy-dependent weight window below 0.999 MeV. A unit-weight neutron entering that region survives Russian roulette with probability \(10^{-7}\) and is reweighted by the reciprocal probability upon survival. This suppresses transport outside the measured range without introducing a hard energy cutoff.
+
 ## Ways to improve the MC/DC model
 
 - **Native correlated angle-energy source distribution:** the present mixture preserves the benchmark source's angular yields and conditional energy moments, but a native correlated source sampler could use the complete tabulated law without angular intervals or moment matching.

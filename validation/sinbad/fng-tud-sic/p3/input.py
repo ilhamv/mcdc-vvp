@@ -426,6 +426,26 @@ detector_flux = mcdc.Tally(
 )
 simulation.set_tallies([detector_flux])
 
+# Neutrons below the measured range are strongly rouletted rather than
+# terminated. A unit-weight neutron survives with probability 1.0e-7 and is
+# reweighted by its reciprocal upon survival.
+low_energy_survival_probability = 1.0e-7
+low_energy_target_weight = 1.0 / low_energy_survival_probability
+weight_windows = np.array(
+    [
+        [
+            low_energy_target_weight,
+            low_energy_target_weight,
+            low_energy_target_weight,
+        ],
+        [0.5, 1.0, 2.0],
+    ]
+)
+simulation.technique.weight_windows(
+    weight_windows,
+    energy=np.array([0.0, EXPERIMENT_ENERGY_EDGES_MEV[0] * 1.0e6, np.inf]),
+)
+
 simulation.settings.N_particle = 1_000_000
 simulation.settings.N_batch = 30
 simulation.settings.output_name = "output"

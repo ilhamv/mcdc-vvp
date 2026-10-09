@@ -8,6 +8,8 @@ The [`neutron_leakage`](neutron_leakage) case follows the detailed neutron-analy
 
 Validation is restricted to complete published bins from **3.0288 to 13.574 MeV**, the boundaries nearest the approximately 3-13.5 MeV defensible region identified by the benchmark assessment. Below about 3 MeV, background subtraction, room return, and low-energy detector-response effects are insufficiently specified. Above about 13.5 MeV, the result is dominated by the D-T source peak and is strongly dependent on the source energy-angle law, timing and energy resolution, detector response, and incompletely documented data reduction [1, 2].
 
+The neutron calculation uses an energy-dependent weight window below 3.0288 MeV. A unit-weight neutron entering that region survives Russian roulette with probability \(10^{-7}\) and is reweighted by the reciprocal probability upon survival. This suppresses transport outside the comparison range without introducing a hard energy cutoff.
+
 ![OKTAVIAN Si-60 gamma-leakage experiment](gamma-geometry.svg)
 
 The [`gamma_leakage`](gamma_leakage) case follows the detailed gamma-analysis configuration. It replaces the neutron pre-collimator with the NaI detector and its lead, stainless-steel, polymer, and concrete collimator assembly at about 5.8 m, while retaining the more distant neutron-detector structures as surrounding experimental hardware. The measured quantity is the neutron-induced photon leakage spectrum obtained by unfolding the NaI pulse-height spectrum with the detector response matrix; TOF information was used to discriminate prompt gamma rays from neutron background [5, 6].

@@ -715,6 +715,28 @@ detector_flux_energy = mcdc.Tally(
 )
 simulation.set_tallies([detector_flux_energy])
 
+# Weight windows
+# Neutrons below the reported comparison range are strongly rouletted rather
+# than terminated.  A unit-weight neutron survives with probability 1.0e-7
+# and, upon survival, receives the reciprocal weight so the estimator remains
+# unbiased.
+low_energy_survival_probability = 1.0e-7
+low_energy_target_weight = 1.0 / low_energy_survival_probability
+weight_windows = np.array(
+    [
+        [
+            low_energy_target_weight,
+            low_energy_target_weight,
+            low_energy_target_weight,
+        ],
+        [0.5, 1.0, 2.0],
+    ]
+)
+simulation.technique.weight_windows(
+    weight_windows,
+    energy=np.array([0.0, VALIDATION_ENERGY_MIN_MEV * 1.0e6, np.inf]),
+)
+
 # Settings
 # The reference 3-D calculation used five billion histories.  This smaller
 # default checks the model and provides a preliminary spectrum; production C/E
