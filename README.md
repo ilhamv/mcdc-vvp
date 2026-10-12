@@ -59,11 +59,12 @@ Create the local launch configuration:
 cp configs/launch_config.py.template configs/launch_config.py
 ```
 
-Edit `configs/launch_config.py` to enable the desired suites and set their platform and launch options.
-Use `platform=None` for local execution or a name from `configs/platform_config.py` for HPC execution.
-For HPC execution, `N_node` sets the number of nodes and each node uses all available CPU cores.
+Edit `configs/launch_config.py` to enable the desired suites and set their platforms and launch options.
+Every suite defines a `platforms` list containing `"local"` and/or names from `configs/platform_config.py`.
+The list identifies the platforms on which that suite may be launched; it does not submit work to another machine.
+For HPC execution, `N_node` sets the number of nodes and each node uses all available resources.
 The parallel-performance suite instead uses `N_node_max` to generate every power-of-two node count through that value.
-It accepts a platform list such as `"platform": ["dane", "tuolumne"]`, isolates each platform's outputs, and uses all GPUs on GPU-equipped platforms or all CPU cores on CPU-only platforms.
+It isolates each platform's outputs and uses all GPUs on GPU-equipped platforms or all CPU cores on CPU-only platforms.
 For HPC execution, a suite's base `walltime` in hours is scaled by each case's `walltime_factor` in that suite's `task.yaml`.
 The scaled value is rounded up to the scheduler's supported resolution, the platform maximum remains the final limit, and local execution ignores walltime settings.
 Run the top-level `python cleanup.py` before launching when the entire configured campaign should start fresh.
@@ -76,7 +77,7 @@ For HPC execution, also create `configs/user_config.py` from its template and pr
 
 ### Launching suites
 
-Launch locally enabled suites configured with `platform=None`:
+Launch enabled suites whose `platforms` list contains `"local"`:
 
 ```bash
 python launch.py
@@ -88,8 +89,8 @@ Launch enabled suites configured for a specific HPC platform:
 python launch.py --platform tuolumne
 ```
 
-The `--platform` option selects suites with a matching configured platform.
-For parallel performance, it selects membership in the configured platform list; run the command separately on each target machine rather than submitting remotely.
+The `--platform` option selects enabled suites whose configured `platforms` list contains that value.
+Run the command separately on each target machine.
 
 ### Processing results
 

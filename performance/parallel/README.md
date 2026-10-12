@@ -52,19 +52,18 @@ Dane uses one MPI rank per CPU core; Tuolumne and other configured GPU platforms
 GPU runs do not attempt to occupy all CPU cores.
 Compilation remains part of total runtime and caching is not enabled by this suite.
 
-The top-level launch configuration accepts either one platform or a list for this suite:
+Like every suite, the top-level launch configuration uses a `platforms` list:
 
 ```python
 "performance/parallel": {
     "enabled": True,
-    "platform": ["dane", "tuolumne"],
+    "platforms": ["dane", "tuolumne"],
     "N_node_max": 64,
 },
 ```
 
 On each target machine, run the top-level launcher with that machine's `--platform` value.
 The list selects compatible hosts; it does not submit to another machine remotely.
-Platform lists are not enabled for the serial or verification suites, whose outputs do not yet have this isolation.
 Use `configs/platform_config.py` for hardware/scheduler settings and `configs/user_config.py` for accounts, queues, reservations, and interpreter paths.
 On Tuolumne, load the required ROCm environment and invoke the launcher through `flux env` when needed by the configured Python/Flux installation.
 

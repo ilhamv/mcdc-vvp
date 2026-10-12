@@ -29,27 +29,33 @@ from configs.launch_config import LAUNCH_CONFIG
 parser = argparse.ArgumentParser(description="Launch enabled MC/DC VVP suites.")
 parser.add_argument(
     "--platform",
-    default=None,
-    help="Select suites configured for PLATFORM; omit for local run.",
+    default="local",
+    help="Launch enabled suites that list PLATFORM (default: local).",
 )
 args = parser.parse_args()
 
 active_platform = args.platform
-platform_name = active_platform or "local"
+
+for suite, options in LAUNCH_CONFIG.items():
+    platforms = options.get("platforms")
+    if (
+        not isinstance(platforms, list)
+        or not platforms
+        or not all(isinstance(platform, str) and platform for platform in platforms)
+    ):
+        parser.error(
+            f"Suite '{suite}' must define 'platforms' as a nonempty list of "
+            "platform names in configs/launch_config.py."
+        )
 
 # Select only suites assigned to this launch invocation.
 selected_suites = {
     suite: options
     for suite, options in LAUNCH_CONFIG.items()
-    if options.get("enabled", False)
-    and (
-        active_platform in options["platform"]
-        if isinstance(options.get("platform"), list)
-        else options.get("platform") == active_platform
-    )
+    if options.get("enabled", False) and active_platform in options["platforms"]
 }
 if not selected_suites:
-    parser.error(f"No enabled suites are configured for platform '{platform_name}'.")
+    parser.error(f"No enabled suites are configured for platform '{active_platform}'.")
 
 
 # ======================================================================================
@@ -57,12 +63,6 @@ if not selected_suites:
 # ======================================================================================
 
 for suite, options in selected_suites.items():
-    # A list selects compatible hosts, not remote submissions from this host.
-    if isinstance(options.get("platform"), list) and suite != "performance/parallel":
-        parser.error(
-            "Platform lists are currently supported only by performance/parallel."
-        )
-    suite_platform = active_platform
     suite_dir = REPO_DIR / suite
     launcher = suite_dir / "launch.py"
 
@@ -76,8 +76,7 @@ for suite, options in selected_suites.items():
     command = [sys.executable, str(launcher)]
 
     # Forward only options that are meaningful for the configured suite.
-    if suite_platform is not None:
-        command.extend(["--platform", suite_platform])
+    command.extend(["--platform", active_platform])
 
     if options.get("N_node") is not None:
         command.extend(["--N_node", str(options["N_node"])])
