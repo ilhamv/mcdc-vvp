@@ -175,8 +175,22 @@ For parallel runs on $P$ nodes, tracking rate and FOM are reported per node as $
 | [Serial](performance/serial/README.md) | Single-process Python and Numba studies. |
 | [Parallel](performance/parallel/README.md) | Full-node Numba strong- and weak-scaling studies. |
 
+#### Notional performance illustrations
+
+The following schematic plots illustrate the intended presentation of the parallel-performance metrics; their relative heights and trends are intentional, but the values are not simulation data or predictions for any platform or transport method.
+
+![Notional tracking-rate and FOM performance envelopes for synthetic CPU and GPU configurations.](performance/design/figures/performance_curves.png)
+
+![Notional performance-level and scaling-evidence summary at common histories-per-node workloads.](performance/design/figures/scaling_summary.png)
+
+The complete performance envelopes show how tracking rate and FOM per node vary with total histories, exposing startup overhead, workload saturation, and differences among node counts.
+For each platform-method combination, the node-count curves converge to a common asymptotic level.
+A vertical slice through the node-count curves at fixed total histories gives a direct strong-scaling comparison; ideal per-node performance aligns the intersections, while greater downward separation as the node count grows indicates reduced strong-scaling efficiency.
+For weak scaling, compare points at fixed histories per node; ideal per-node performance places those points on a horizontal line, while a downward departure as the node count grows indicates reduced weak-scaling efficiency.
+
 Parallel results pair a detailed **Performance envelope** with a **Performance level + scaling evidence** summary at common histories-per-node workloads.
 The summary compares weak scaling to the left of its main bar and workload sensitivity, as indirect strong-scaling evidence, to its right.
+A substantial drop from the left wing toward the main bar indicates poor weak-scaling efficiency; a substantial drop from the main bar toward the right indicates sensitivity to decreasing work per node and warns of poor strong-scaling efficiency.
 Interpolation is marked and restricted to measured ranges; the envelope indicates whether the selected level is near saturation.
 
 ## Documentation

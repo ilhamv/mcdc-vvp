@@ -1,4 +1,4 @@
-"""Generate synthetic performance illustrations without running transport cases."""
+"""Generate schematic performance illustrations without running transport cases."""
 
 from pathlib import Path
 
@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgb
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
+from matplotlib.ticker import NullFormatter
 import numpy as np
 
 NODES = (1, 4, 16)
@@ -95,7 +96,7 @@ def style_axis(axis):
 
 
 def save_curves(destination):
-    """Show the full notional tracking-rate and FOM curves by platform."""
+    """Illustrate performance envelopes and the two scaling comparisons."""
     series_by_configuration = {
         (platform, method, nodes): synthetic_series(platform, method, nodes)
         for platform in PLATFORMS
@@ -123,17 +124,23 @@ def save_curves(destination):
     figure.text(
         0.085,
         0.927,
-        "NOTIONAL DATA  •  Synthetic CPU/GPU configurations; not MC/DC measurements",
+        "SCHEMATIC  •  Relative values illustrate trends; not MC/DC measurements",
         fontsize=11,
         color="#687584",
     )
+    strong_scaling_histories = common_maximum_per_node()
+    weak_scaling_histories_per_node = common_maximum_per_node()
     for row, platform in enumerate(PLATFORMS):
         for column, metric in enumerate(("tracking_rate", "fom")):
             axis = axes[row, column]
+            scale = max(
+                np.max(series_by_configuration[platform, method, nodes][metric])
+                for method in METHODS
+                for nodes in NODES
+            )
             for method in METHODS:
                 for nodes in NODES:
                     series = series_by_configuration[platform, method, nodes]
-                    scale = 1e6 if metric == "tracking_rate" else 1.0
                     axis.plot(
                         series["histories"],
                         series[metric] / scale,
@@ -144,9 +151,69 @@ def save_curves(destination):
                         markersize=3.5,
                         markerfacecolor="white",
                     )
+            # A vertical slice holds total histories fixed: direct strong scaling.
+            axis.axvline(
+                strong_scaling_histories,
+                color="#687584",
+                linestyle=(0, (3, 3)),
+                linewidth=1.2,
+                zorder=0.5,
+            )
+            axis.text(
+                strong_scaling_histories,
+                0.05,
+                "Strong scaling\nfixed $N$",
+                transform=axis.get_xaxis_transform(),
+                rotation=90,
+                va="bottom",
+                ha="right",
+                fontsize=8.5,
+                color="#687584",
+            )
+
+            # Ideal weak scaling stays horizontal at fixed histories per node. The
+            # diamonds show the modest intentional departure from that guide.
+            weak_histories = np.array(NODES) * weak_scaling_histories_per_node
+            weak_values = np.array(
+                [
+                    sample_at(
+                        series_by_configuration[platform, "Analog", nodes],
+                        histories,
+                        nodes,
+                    )[metric]
+                    / scale
+                    for nodes, histories in zip(NODES, weak_histories)
+                ]
+            )
+            axis.hlines(
+                weak_values[0],
+                weak_histories[0],
+                weak_histories[-1],
+                color="#687584",
+                linestyle=(0, (1, 2)),
+                linewidth=1.2,
+                zorder=0.5,
+            )
+            axis.scatter(
+                weak_histories,
+                weak_values,
+                marker="D",
+                s=22,
+                facecolor="white",
+                edgecolor="#687584",
+                linewidth=1.0,
+                zorder=4,
+            )
+            axis.text(
+                weak_histories[0],
+                min(1.02, weak_values[0] + 0.055),
+                "Weak scaling: fixed $N/P$",
+                fontsize=8.5,
+                color="#687584",
+            )
             axis.set_xscale("log")
             axis.set_xlim(*history_limits)
-            axis.set_ylim(bottom=0)
+            axis.set_ylim(0, 1.08)
             axis.set_title(
                 f"{platform} · {'Tracking rate' if column == 0 else 'FOM'} per node",
                 loc="left",
@@ -154,12 +221,14 @@ def save_curves(destination):
                 pad=10,
             )
             axis.set_ylabel(
-                "Million histories/s/node"
+                "Relative tracking rate per node"
                 if column == 0
-                else r"Precision/s/node [$\%^{-2}$/s/node]"
+                else "Relative FOM per node"
             )
             if row == 1:
-                axis.set_xlabel(r"Total histories, $N$")
+                axis.set_xlabel(r"Increasing total histories, $N$ →")
+            axis.xaxis.set_major_formatter(NullFormatter())
+            axis.xaxis.set_minor_formatter(NullFormatter())
             style_axis(axis)
     method_handles = [
         Line2D([], [], color=COLORS[p, m], linewidth=3, label=f"{p} · {m}")
@@ -189,8 +258,8 @@ def save_curves(destination):
     figure.text(
         0.085,
         0.035,
-        "Open circles: synthetic samples.  Line style: node count.\n"
-        "Panels use different vertical ranges; compare numerical values, not apparent curve heights.",
+        "Open circles: notional samples.  Line style: node count.  Values are normalized within each panel.\n"
+        "Vertical guide: direct strong scaling.  Horizontal guide and diamonds: ideal and imperfect weak scaling.",
         fontsize=10,
         color="#687584",
         linespacing=1.6,
@@ -210,7 +279,7 @@ def common_maximum_per_node():
 
 
 def summary_points(platform, method):
-    """Select matched-workload anchors and wings without extrapolation."""
+    """Construct schematic scaling-summary anchors independently of the envelope."""
     nodes = max(NODES)
     maximum_per_node = common_maximum_per_node()
     maximum_histories = maximum_per_node * nodes
@@ -221,7 +290,7 @@ def summary_points(platform, method):
         (nodes, maximum_histories / divisor, "workload")
         for divisor in WORKLOAD_DIVISORS
     )
-    return [
+    points = [
         {
             "nodes": nodes,
             "histories": histories,
@@ -231,15 +300,24 @@ def summary_points(platform, method):
         }
         for nodes, histories, role in selections
     ]
+    # The summary is a separate notional drawing. Give its fixed-work-per-node wing
+    # a visible but modest node-count loss without changing the common asymptotes in
+    # the performance-envelope illustration.
+    for point in points:
+        efficiency = 1.0 - 0.015 * np.log2(point["nodes"])
+        point["tracking_rate"] *= efficiency
+        point["fom"] *= efficiency
+    return points
 
 
 def save_summary(destination):
     """Show achieved performance between weak-scaling and workload-sensitivity wings."""
     title = "Performance level + scaling evidence"
-    maximum_per_node = common_maximum_per_node()
-    workload_label = f"Main bar M: {max(NODES)} nodes × {maximum_per_node / 1e9:.3f} billion histories/node, shared by all groups"
+    workload_label = (
+        "Main bar M: largest illustrated allocation at a common workload per node"
+    )
     selection_label = "← Fewer nodes, fixed histories/node     |     M     |     Fixed nodes, fewer histories/node →"
-    histories_label = "Bar order: 1 node / 4 nodes / M (16 nodes) / a / b / c / d;   a–d: h_max ÷ 4 / 16 / 64 / 256"
+    histories_label = "Bar order: fewer nodes / M / a / b / c / d;   a–d: progressively less work per node"
     figure, axes = plt.subplots(1, 2, figsize=(13, 6.5))
     figure.subplots_adjust(left=0.085, right=0.98, bottom=0.28, top=0.70, wspace=0.25)
     figure.suptitle(
@@ -253,7 +331,7 @@ def save_summary(destination):
     figure.text(
         0.085,
         0.91,
-        f"NOTIONAL DATA  •  {workload_label}",
+        f"SCHEMATIC  •  {workload_label}",
         fontsize=11,
         color="#687584",
         va="top",
@@ -269,6 +347,11 @@ def save_summary(destination):
     )
     combinations = [(p, m) for p in PLATFORMS for m in METHODS]
     for axis, metric in zip(axes, ("tracking_rate", "fom")):
+        scale = max(
+            point[metric]
+            for platform, method in combinations
+            for point in summary_points(platform, method)
+        )
         group_labels = []
         for group, (platform, method) in enumerate(combinations):
             points = summary_points(platform, method)
@@ -279,7 +362,7 @@ def save_summary(destination):
             label = f"{platform}\n{method}"
             group_labels.append(label)
             for index, values in enumerate(points):
-                height = values[metric] / (1e6 if metric == "tracking_rate" else 1)
+                height = values[metric] / scale
                 color = np.array(to_rgb(COLORS[platform, method]))
                 color = color + (1.0 - color) * 0.13 * abs(index - main_index)
                 axis.bar(
@@ -313,11 +396,11 @@ def save_summary(destination):
                 )
         axis.set_xticks(range(len(combinations)), group_labels)
         axis.tick_params(axis="x", labelsize=9.5)
-        axis.set_ylim(0, axis.get_ylim()[1] * 1.16)
+        axis.set_ylim(0, 1.16)
         axis.set_ylabel(
-            "Million histories/s/node"
+            "Relative tracking rate per node"
             if metric == "tracking_rate"
-            else r"Precision/s/node [$\%^{-2}$/s/node]"
+            else "Relative FOM per node"
         )
         axis.set_title(
             "Tracking rate per node" if metric == "tracking_rate" else "FOM per node",
@@ -331,7 +414,7 @@ def save_summary(destination):
             Patch(
                 facecolor="#d2d9e0",
                 edgecolor="#344254",
-                label="Exact synthetic sampling point",
+                label="Illustrated sampling point",
             ),
         ]
         + [
@@ -339,7 +422,7 @@ def save_summary(destination):
                 facecolor="#d2d9e0",
                 edgecolor="#344254",
                 hatch="///",
-                label="Interpolated synthetic point",
+                label="Illustrated interpolation",
             )
         ],
         loc="lower left",
@@ -351,8 +434,8 @@ def save_summary(destination):
     figure.text(
         0.085,
         0.035,
-        "Left + M: direct weak-scaling comparison.  M + right: indirect strong-scaling evidence from workload sensitivity.\n"
-        "All groups share the same workload targets.  Hatched bars interpolate runtime and precision; no extrapolation.",
+        "Left → M: weak-scaling loss.  M → right: workload loss and indirect strong-scaling evidence.\n"
+        "A larger drop indicates poorer scaling behavior.  Hatched bars illustrate interpolation.",
         fontsize=10,
         color="#687584",
         linespacing=1.6,
@@ -379,7 +462,7 @@ def main():
     destination.mkdir(exist_ok=True)
     save_curves(destination)
     save_summary(destination)
-    print(f"Wrote two synthetic illustrations to {destination}")
+    print(f"Wrote two schematic illustrations to {destination}")
 
 
 if __name__ == "__main__":
