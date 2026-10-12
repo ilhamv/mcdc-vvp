@@ -64,10 +64,10 @@ Every suite defines a `platforms` list containing `"local"` and/or names from `c
 The list identifies the platforms on which that suite may be launched; it does not submit work to another machine.
 For HPC execution, `N_node` sets the number of nodes and each node uses all available resources.
 The parallel-performance suite instead uses `N_node_max` to generate every power-of-two node count through that value.
-It isolates each platform's outputs and uses all GPUs on GPU-equipped platforms or all CPU cores on CPU-only platforms.
+Both performance suites preserve platform identity in their outputs and processed results.
+Parallel performance uses all GPUs on GPU-equipped platforms or all CPU cores on CPU-only platforms.
 For HPC execution, a suite's base `walltime` in hours is scaled by each case's `walltime_factor` in that suite's `task.yaml`.
 The scaled value is rounded up to the scheduler's supported resolution, the platform maximum remains the final limit, and local execution ignores walltime settings.
-Run the top-level `python cleanup.py` before launching when the entire configured campaign should start fresh.
 
 ### User configuration
 
@@ -102,10 +102,19 @@ python process.py
 
 For each suite registered in `configs/launch_config.py`, the top-level processor invokes the suite processor when a Maestro run is available and then moves the generated `results/` directory under the same suite path in the top-level `results/` directory.
 An existing suite `results/` directory can still be collected when no Maestro run is present, and suites with neither are skipped.
-The SINBAD suite additionally requires `sinbad_root` in `configs/launch_config.py` so its processor can read the locally available licensed experimental tables.
-Within each suite, `convergence/` contains study-wide convergence figures and `comparison/` contains plots or animations from the largest-statistics result.
-These directories apply to verification; parallel performance instead combines the latest saved study per platform under `results/<comparison>/`, as described in its suite README.
-Collecting a suite results replaces that suite's existing top-level ones.
+Some suite processors require additional local configuration, such as data-directory paths or environment variables; consult the suite README before processing its results.
+Collecting a suite's results replaces that suite's existing top-level results.
+
+### Cleaning generated results
+
+Remove generated case outputs and processed results from every registered suite:
+
+```bash
+python cleanup.py
+```
+
+Run cleanup before launching when the entire configured campaign should start fresh.
+It removes Maestro run directories and retains reference data.
 
 ### Preparing release assets
 
@@ -117,14 +126,6 @@ python prepare_release.py
 
 The script recreates `release/`, copies every figure from `results/`, and replaces each directory boundary in its relative path with `--` to form a unique flat asset name.
 The structured files in `results/` are not modified.
-
-Remove generated case outputs and processed results from every registered suite:
-
-```bash
-python cleanup.py
-```
-
-Cleanup removes Maestro run directories and retains reference data.
 
 ## Suites
 

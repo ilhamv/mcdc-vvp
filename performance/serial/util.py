@@ -48,10 +48,15 @@ def output_name(mode, N_particle):
     return f"output_{mode}_{int(N_particle)}"
 
 
-def case_outputs_complete(case_dir, task, mode):
+def output_directory(case_dir, platform):
+    """Keep each platform's outputs separate within a case."""
+    return Path(case_dir) / "outputs" / platform
+
+
+def case_outputs_complete(case_dir, task, mode, platform):
     """Return whether all configured outputs exist for one case and mode."""
-    case_dir = Path(case_dir)
+    output_dir = output_directory(case_dir, platform)
     return all(
-        output_complete(case_dir / f"{output_name(mode, count)}.h5")
+        output_complete(output_dir / f"{output_name(mode, count)}.h5")
         for count in task_particle_counts(task, mode)
     )

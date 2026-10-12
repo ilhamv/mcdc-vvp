@@ -54,7 +54,7 @@ args = parser.parse_args()
 suite_dir = Path(__file__).resolve().parent
 task_file = suite_dir / "task.yaml"
 run_case = suite_dir / "run_case.py"
-study_file = suite_dir / "study.yaml"
+study_file = suite_dir / f"study_{args.platform}.yaml"
 local = args.platform == "local"
 user_platform_config = USER_CONFIG.get(args.platform, {})
 
@@ -99,12 +99,15 @@ for case_name, task in tasks.items():
 
     for mode in task_modes(task):
         step_name = f"{case_name.replace('-', '_')}_{mode}"
-        if case_outputs_complete(case_dir, task, mode):
+        if case_outputs_complete(case_dir, task, mode, args.platform):
             skipped_tasks.append(step_name)
             print(f"Skip complete case and mode: {case_name}, {mode}")
             continue
 
-        command = f"{mcdc_python} {run_case} --name {case_name} --mode {mode}"
+        command = (
+            f"{mcdc_python} {run_case} --name {case_name} --mode {mode} "
+            f"--platform {args.platform}"
+        )
         if not local:
             command += ' --launcher "$(LAUNCHER)"'
 
@@ -128,7 +131,7 @@ if not steps:
 
 study = {
     "description": {
-        "name": "maestro_run",
+        "name": f"maestro_run_{args.platform}",
         "description": "MC/DC serial-performance suite",
     },
     "env": {"variables": {}},
@@ -160,7 +163,7 @@ with study_file.open("w") as stream:
 maestro_python = None if local else user_platform_config.get("maestro_python")
 env = os.environ.copy()
 if maestro_python is None:
-    maestro_command = ["maestro", "run", "study.yaml"]
+    maestro_command = ["maestro", "run", study_file.name]
 else:
     maestro_python = Path(maestro_python).expanduser()
     env["PATH"] = f"{maestro_python.parent}:{env['PATH']}"
@@ -169,7 +172,7 @@ else:
         "-m",
         "maestrowf.maestro",
         "run",
-        "study.yaml",
+        study_file.name,
     ]
 subprocess.run(maestro_command, cwd=suite_dir, check=True, env=env)
 
@@ -179,7 +182,8 @@ subprocess.run(maestro_command, cwd=suite_dir, check=True, env=env)
 
 # Save the effective configuration alongside the generated Maestro run.
 maestro_runs = sorted(
-    suite_dir.glob("maestro_run_*"), key=lambda path: path.stat().st_mtime
+    suite_dir.glob(f"maestro_run_{args.platform}_*"),
+    key=lambda path: path.stat().st_mtime,
 )
 if not maestro_runs:
     raise RuntimeError("Maestro did not create a maestro_run_* directory.")
@@ -193,6 +197,7 @@ launch_config = {
     "walltime": args.walltime,
     "case_walltimes": case_walltimes,
     "mcdc_python": mcdc_python,
+    "output_layout": 2,
 }
 with (latest_run / "launch_config.yaml").open("w") as stream:
     yaml.dump(launch_config, stream, sort_keys=False)

@@ -8,7 +8,15 @@ from pathlib import Path
 
 import yaml
 
-from util import MODES, output_complete, output_name, task_particle_counts
+from util import (
+    MODES,
+    output_complete,
+    output_directory,
+    output_name,
+    task_particle_counts,
+)
+
+from configs.platform_config import PLATFORMS
 
 # ======================================================================================
 # Command-line arguments
@@ -17,6 +25,7 @@ from util import MODES, output_complete, output_name, task_particle_counts
 parser = argparse.ArgumentParser(description="Run one MC/DC serial-performance case.")
 parser.add_argument("--name", required=True, help="Serial-performance case name.")
 parser.add_argument("--mode", required=True, choices=MODES)
+parser.add_argument("--platform", required=True, choices=["local"] + list(PLATFORMS))
 parser.add_argument("--task-file", default="task.yaml")
 parser.add_argument(
     "--launcher",
@@ -32,10 +41,12 @@ args = parser.parse_args()
 
 suite_dir = Path(__file__).resolve().parent
 case_dir = suite_dir / "cases" / args.name
+output_dir = output_directory(case_dir, args.platform)
 task_file = suite_dir / args.task_file
 
 if not case_dir.is_dir():
     raise FileNotFoundError(f"Case directory not found: {case_dir}")
+output_dir.mkdir(parents=True, exist_ok=True)
 
 # ======================================================================================
 # Load task definition
@@ -56,7 +67,7 @@ mode = args.mode
 for N_particle in task_particle_counts(task, mode):
     N_particle = int(N_particle)
     output = output_name(mode, N_particle)
-    output_file = case_dir / f"{output}.h5"
+    output_file = output_dir / f"{output}.h5"
     if output_complete(output_file):
         print(f"Skip existing output: {args.name}, {mode}, N={N_particle}")
         continue
@@ -67,7 +78,7 @@ for N_particle in task_particle_counts(task, mode):
         "input.py",
         f"--mode={mode}",
         f"--N_particle={N_particle}",
-        f"--output={output}",
+        f"--output={output_dir / output}",
         "--no-progress_bar",
     ]
 
