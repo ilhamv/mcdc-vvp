@@ -1,4 +1,4 @@
-"""Remove generated neutron code-to-code outputs and figures."""
+"""Remove generated multigroup fixed-source code-to-code outputs and figures."""
 
 import shutil
 from pathlib import Path

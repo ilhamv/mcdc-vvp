@@ -1,6 +1,6 @@
-# Neutron Code-to-Code Verification
+# Code-to-Code Multigroup Fixed-Source Verification
 
-This suite compares neutron transport results from multiple independently implemented codes.
+This suite compares multigroup fixed-source transport results from multiple independently implemented codes.
 The current participating codes are MC/DC and OpenMC, and the workflow is intended to accommodate additional codes.
 It exercises time-dependent multigroup transport, moving geometry, delayed neutrons, void streaming, and multidimensional space-time tallies.
 The arithmetic mean of the participating code estimates at the largest sampling level defines the fixed comparison reference for every level.

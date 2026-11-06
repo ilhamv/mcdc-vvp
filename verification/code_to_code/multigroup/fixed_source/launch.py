@@ -1,4 +1,4 @@
-"""Build and launch the analytical k-eigenvalue verification study."""
+"""Build and launch the multigroup fixed-source code-to-code verification study with Maestro."""
 
 import argparse
 import os
@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import numpy as np
 import yaml
 
 # ======================================================================================
@@ -26,6 +25,7 @@ if str(REPO_DIR) not in sys.path:
 
 from configs.platform_config import PLATFORMS
 from configs.util import case_outputs_complete, get_case_walltime
+from util import particle_counts
 
 # User overrides are optional for local runs.
 try:
@@ -39,7 +39,7 @@ except ImportError:
 # ======================================================================================
 
 parser = argparse.ArgumentParser(
-    description="Launch the MC/DC VVP analytical neutron k-eigenvalue suite."
+    description="Launch the MC/DC VVP multigroup fixed-source code-to-code suite."
 )
 parser.add_argument("--platform", default="local", choices=["local"] + list(PLATFORMS))
 parser.add_argument(
@@ -129,13 +129,7 @@ skipped_cases = []
 
 for case_name, task in tasks.items():
     case_dir = suite_dir / "cases" / case_name
-    counts = np.rint(
-        np.geomspace(
-            task["N_active_min"],
-            task["N_active_max"],
-            task["N_task"],
-        )
-    ).astype(int)
+    counts = particle_counts(task["logN_min"], task["logN_max"], task["N_task"])
 
     # Do not allocate a Maestro step when every sampling level is already present.
     if case_outputs_complete(case_dir, counts):
@@ -145,6 +139,7 @@ for case_name, task in tasks.items():
 
     # Normalize case names into stable Maestro step identifiers.
     safe_case_name = case_name.replace("-", "_")
+
     command = f"{mcdc_python} {run_case} --name {case_name}"
 
     # Maestro replaces LAUNCHER with the scheduler-specific process launcher.
@@ -178,9 +173,11 @@ if not steps:
 study = {
     "description": {
         "name": "maestro_run",
-        "description": "MC/DC verification - analytical neutron - k-eigenvalue suite",
+        "description": "MC/DC verification - multigroup fixed-source code-to-code suite",
     },
-    "env": {"variables": {}},
+    "env": {
+        "variables": {},
+    },
     "study": steps,
 }
 
@@ -191,10 +188,13 @@ if not local:
         "host": platform["host"],
         "bank": account,
     }
+
     if queue is not None:
         batch["queue"] = queue
+
     if reservation is not None:
         batch["reservation"] = reservation
+
     study["batch"] = batch
 
 
@@ -211,6 +211,7 @@ with study_file.open("w") as f:
 # ======================================================================================
 
 maestro_python = None
+
 if not local:
     maestro_python = user_platform_config.get("maestro_python")
 
@@ -224,6 +225,7 @@ else:
     maestro_bin = maestro_python.parent
     # Keep executables spawned by Maestro in the same configured environment.
     env["PATH"] = f"{maestro_bin}:{env['PATH']}"
+
     maestro_command = [
         str(maestro_python),
         "-m",
@@ -244,10 +246,12 @@ maestro_runs = sorted(
     suite_dir.glob("maestro_run_*"),
     key=lambda path: path.stat().st_mtime,
 )
+
 if not maestro_runs:
     raise RuntimeError("Maestro did not create a maestro_run_* directory.")
 
 latest_run = maestro_runs[-1]
+
 launch_config = {
     "platform": args.platform,
     "scheduler": "local" if local else scheduler,
@@ -262,8 +266,11 @@ launch_config = {
 with (latest_run / "launch_config.yaml").open("w") as f:
     yaml.dump(launch_config, f, sort_keys=False)
 
+with task_file.open("r") as f:
+    task_config = yaml.safe_load(f)
+
 with (latest_run / "task.yaml").open("w") as f:
-    yaml.dump(tasks, f, sort_keys=False)
+    yaml.dump(task_config, f, sort_keys=False)
 
 
 # ======================================================================================

@@ -1,5 +1,3 @@
-"""Process the analytical neutron k-eigenvalue verification suite."""
-
 import argparse
 import shutil
 import subprocess
@@ -13,7 +11,7 @@ import yaml
 # ======================================================================================
 
 parser = argparse.ArgumentParser(
-    description="Process the MC/DC VVP analytical neutron k-eigenvalue suite."
+    description="Process the MC/DC VVP analytical multigroup fixed-source suite."
 )
 parser.add_argument(
     "maestro_run",
@@ -44,7 +42,7 @@ def collect_case_figures(case_dir, destination, case_name):
 
 
 # ======================================================================================
-# Resolve the launch and load its configuration
+# Paths
 # ======================================================================================
 
 suite_dir = Path(__file__).resolve().parent
@@ -54,20 +52,30 @@ if args.maestro_run is None:
         suite_dir.glob("maestro_run_*"),
         key=lambda path: path.stat().st_mtime,
     )
+
     if not maestro_runs:
         raise FileNotFoundError("No maestro_run_* directory found.")
+
     maestro_run = maestro_runs[-1]
 else:
     maestro_run = Path(args.maestro_run).expanduser()
+
     if not maestro_run.is_absolute():
         maestro_run = suite_dir / maestro_run
 
 launch_config_file = maestro_run / "launch_config.yaml"
 task_file = maestro_run / "task.yaml"
+
 if not launch_config_file.is_file():
     raise FileNotFoundError(f"Launch config not found: {launch_config_file}")
+
 if not task_file.is_file():
     raise FileNotFoundError(f"Task config not found: {task_file}")
+
+
+# ======================================================================================
+# Load configuration and tasks
+# ======================================================================================
 
 with launch_config_file.open("r") as f:
     launch_config = yaml.safe_load(f)
@@ -92,10 +100,10 @@ shutil.copy2(task_file, results_dir / "task.yaml")
 
 
 # ======================================================================================
-# Process cases and collect their figures
+# Process cases
 # ======================================================================================
 
-for case_name, task in tasks.items():
+for case_name in tasks:
     case_dir = suite_dir / "cases" / case_name
     process_script = case_dir / "process.py"
 
@@ -103,26 +111,32 @@ for case_name, task in tasks.items():
         print(f"Skipping {case_name}: no process.py")
         continue
 
+    task = tasks[case_name]
+
+    logN_min = task["logN_min"]
+    logN_max = task["logN_max"]
+    N_task = task["N_task"]
+
     print(f"Processing {case_name}")
     clear_case_figures(case_dir)
 
-    # Generate and collect convergence figures over the active-cycle study.
+    # Generate and collect convergence figures over the full particle-count study.
     subprocess.run(
         [
             sys.executable,
             str(process_script),
-            str(task["N_active_min"]),
-            str(task["N_active_max"]),
-            str(task["N_task"]),
+            str(logN_min),
+            str(logN_max),
+            str(N_task),
         ],
         cwd=case_dir,
         check=True,
     )
     collect_case_figures(case_dir, convergence_dir, case_name)
 
-    # Inspect the result with the largest number of active cycles.
+    # Compare the highest-statistics result directly with its reference solution.
     plot_script = case_dir / "plot.py"
-    output = case_dir / f"output_{task['N_active_max']}.h5"
+    output = case_dir / f"output_{int(10**logN_max)}.h5"
     subprocess.run(
         [sys.executable, str(plot_script), str(output)],
         cwd=case_dir,

@@ -40,7 +40,7 @@ except ImportError:
 # ======================================================================================
 
 parser = argparse.ArgumentParser(
-    description="Launch the MC/DC VVP analytical neutron fixed-source suite."
+    description="Launch the MC/DC VVP analytical multigroup fixed-source suite."
 )
 parser.add_argument("--platform", default="local", choices=["local"] + list(PLATFORMS))
 parser.add_argument(
@@ -179,7 +179,7 @@ if not steps:
 study = {
     "description": {
         "name": "maestro_run",
-        "description": "MC/DC verification - analytical neutron - fixed-source suite",
+        "description": "MC/DC verification - analytical multigroup - fixed-source suite",
     },
     "env": {
         "variables": {},

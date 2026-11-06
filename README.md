@@ -131,14 +131,30 @@ The structured files in `results/` are not modified.
 
 ### Verification
 
+Verification is organized by method, transport formulation, and calculation type:
+
+```text
+verification/
+  analytical/
+    multigroup/
+      fixed_source/
+      k_eigenvalue/
+  code_to_code/
+    multigroup/
+      fixed_source/
+```
+
+Each case specifies its particle species and interaction data. The multigroup
+suites assess the shared transport formulation.
+
 #### Analytical verification
 
 Analytical verification demonstrates the expected statistical convergence of MC/DC by comparing numerical solutions against analytical and semi-analytical reference solutions as the sampling effort is increased.
 
-| Physics | Suite | Description |
+| Transport formulation | Suite | Description |
 | :------ | :---- | :---------- |
-| Neutron transport | [Fixed-source](verification/analytical/neutron/fixed_source/README.md) | Multigroup steady-state and transient cases, including a two-group manufactured solution, Reed's problem, AZURV1 variants, and infinite SHEM-361 benchmarks. |
-| Neutron transport | [k-eigenvalue](verification/analytical/neutron/k_eigenvalue/README.md) | Homogeneous and Kornreich-Parsons one-group slab benchmarks, plus infinite homogeneous SHEM-361 cases. |
+| Multigroup | [Fixed-source](verification/analytical/multigroup/fixed_source/README.md) | Multigroup steady-state and transient cases, including a two-group manufactured solution, Reed's problem, AZURV1 variants, and infinite SHEM-361 benchmarks. |
+| Multigroup | [k-eigenvalue](verification/analytical/multigroup/k_eigenvalue/README.md) | Homogeneous and Kornreich-Parsons one-group slab benchmarks, plus infinite homogeneous SHEM-361 cases. |
 
 #### Code-to-code verification
 
@@ -146,9 +162,9 @@ Code-to-code verification assesses whether relative differences among independen
 Convergence proportional to $N^{-1/2}$ supports that the participating codes are approaching the same solution at the expected Monte Carlo rate, although agreement alone cannot exclude shared bias.
 The arithmetic mean of all participating code estimates at the largest sampling level defines a fixed comparison reference for every level, allowing a case to include two or more codes without designating one as exact.
 
-| Physics | Suite | Description |
+| Transport formulation | Suite | Description |
 | :------ | :---- | :---------- |
-| Neutron transport | [Code-to-code](verification/code_to_code/neutron/README.md) | Time-dependent C5G7 and Kobayashi comparisons among participating codes. |
+| Multigroup | [Fixed-source](verification/code_to_code/multigroup/fixed_source/README.md) | Time-dependent C5G7 and Kobayashi comparisons among participating codes. |
 
 ### Validation
 

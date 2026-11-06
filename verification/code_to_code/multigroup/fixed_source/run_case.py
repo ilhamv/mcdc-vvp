@@ -1,4 +1,4 @@
-"""Run one neutron code-to-code case over its particle-count study."""
+"""Run one multigroup fixed-source code-to-code case over its particle-count study."""
 
 import argparse
 import subprocess
@@ -14,7 +14,7 @@ from util import particle_counts
 # ======================================================================================
 
 parser = argparse.ArgumentParser(
-    description="Run one MC/DC VVP neutron code-to-code case."
+    description="Run one MC/DC VVP multigroup fixed-source code-to-code case."
 )
 parser.add_argument("--name", required=True, help="Verification case name.")
 parser.add_argument("--task-file", default="task.yaml")

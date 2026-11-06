@@ -1,3 +1,5 @@
+"""Process a completed multigroup fixed-source code-to-code Maestro study."""
+
 import argparse
 import shutil
 import subprocess
@@ -6,12 +8,14 @@ from pathlib import Path
 
 import yaml
 
+from util import particle_counts, require_reference_files
+
 # ======================================================================================
 # Command-line arguments
 # ======================================================================================
 
 parser = argparse.ArgumentParser(
-    description="Process the MC/DC VVP analytical neutron fixed-source suite."
+    description="Process the MC/DC VVP multigroup fixed-source code-to-code suite."
 )
 parser.add_argument(
     "maestro_run",
@@ -34,9 +38,9 @@ def clear_case_figures(case_dir):
             figure.unlink()
 
 
-def collect_case_figures(case_dir, destination, case_name):
+def collect_case_figures(case_dir, destination, case_name, patterns):
     """Move generated case figures into a named suite results directory."""
-    for pattern in ("*.png", "*.gif"):
+    for pattern in patterns:
         for figure in case_dir.glob(pattern):
             figure.replace(destination / f"{case_name}_{figure.name}")
 
@@ -86,6 +90,7 @@ with task_file.open("r") as f:
 results_dir = suite_dir / "results"
 convergence_dir = results_dir / "convergence"
 comparison_dir = results_dir / "comparison"
+reference_dir = results_dir / "reference"
 
 # Start with an empty suite results hierarchy on every processing run.
 if results_dir.is_dir():
@@ -93,6 +98,7 @@ if results_dir.is_dir():
 
 convergence_dir.mkdir(parents=True, exist_ok=True)
 comparison_dir.mkdir(parents=True, exist_ok=True)
+reference_dir.mkdir(parents=True, exist_ok=True)
 
 # Keep the effective launch and task definitions beside the processed figures.
 shutil.copy2(launch_config_file, results_dir / "launch_config.yaml")
@@ -103,7 +109,7 @@ shutil.copy2(task_file, results_dir / "task.yaml")
 # Process cases
 # ======================================================================================
 
-for case_name in tasks:
+for case_name, task in tasks.items():
     case_dir = suite_dir / "cases" / case_name
     process_script = case_dir / "process.py"
 
@@ -111,38 +117,57 @@ for case_name in tasks:
         print(f"Skipping {case_name}: no process.py")
         continue
 
-    task = tasks[case_name]
-
-    logN_min = task["logN_min"]
-    logN_max = task["logN_max"]
-    N_task = task["N_task"]
-
     print(f"Processing {case_name}")
     clear_case_figures(case_dir)
 
-    # Generate and collect convergence figures over the full particle-count study.
+    # Generate and collect convergence figures over the particle-count study.
     subprocess.run(
         [
             sys.executable,
             str(process_script),
-            str(logN_min),
-            str(logN_max),
-            str(N_task),
+            str(task["logN_min"]),
+            str(task["logN_max"]),
+            str(task["N_task"]),
         ],
         cwd=case_dir,
         check=True,
     )
-    collect_case_figures(case_dir, convergence_dir, case_name)
+    collect_case_figures(
+        case_dir,
+        convergence_dir,
+        case_name,
+        ("convergence_*.png",),
+    )
+    collect_case_figures(
+        case_dir,
+        reference_dir,
+        case_name,
+        ("reference_*.png", "reference_*.gif"),
+    )
 
-    # Compare the highest-statistics result directly with its reference solution.
+    # Compare the participating codes at the largest shared sample size.
+    counts = particle_counts(task["logN_min"], task["logN_max"], task["N_task"])
+    mcdc_output = case_dir / f"output_{int(counts[-1])}.h5"
+    reference_output = require_reference_files(case_dir, task["N_task"])[-1]
     plot_script = case_dir / "plot.py"
-    output = case_dir / f"output_{int(10**logN_max)}.h5"
     subprocess.run(
-        [sys.executable, str(plot_script), str(output)],
+        [
+            sys.executable,
+            str(plot_script),
+            str(mcdc_output),
+            str(reference_output),
+            str(mcdc_output),
+            str(reference_output),
+        ],
         cwd=case_dir,
         check=True,
     )
-    collect_case_figures(case_dir, comparison_dir, case_name)
+    collect_case_figures(
+        case_dir,
+        comparison_dir,
+        case_name,
+        ("comparison.gif", "difference.gif", "comparison.png", "difference.png"),
+    )
 
 
 # ======================================================================================

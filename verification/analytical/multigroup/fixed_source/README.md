@@ -1,6 +1,6 @@
-# Analytical Neutron Fixed-Source Verification
+# Analytical Multigroup Fixed-Source Verification
 
-This suite verifies MC/DC neutron transport using multigroup fixed-source cases with analytical reference solutions.
+This suite verifies MC/DC multigroup transport using fixed-source cases with analytical reference solutions.
 It exercises geometry tracking, surface crossings, material lookup, source sampling, particle transport, and tallying.
 Verification checks for the expected $N^{-1/2}$ statistical convergence as the number of source particles increases.
 

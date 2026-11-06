@@ -1,4 +1,4 @@
-"""Shared processing helpers for neutron code-to-code cases."""
+"""Shared processing helpers for multigroup fixed-source code-to-code cases."""
 
 from pathlib import Path
 

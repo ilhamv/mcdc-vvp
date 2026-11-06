@@ -2,7 +2,7 @@
 # MC/DC Verification Task Definitions
 # =============================================================================
 #
-# This file defines the fixed-source analytical neutron verification cases.
+# This file defines the fixed-source analytical multigroup verification cases.
 #
 # Each top-level key corresponds to a case directory under this suite, for
 # example:

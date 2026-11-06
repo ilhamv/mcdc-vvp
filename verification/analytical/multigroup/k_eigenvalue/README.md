@@ -1,6 +1,6 @@
-# Analytical Neutron $k$-Eigenvalue Verification
+# Analytical Multigroup $k$-Eigenvalue Verification
 
-This suite verifies MC/DC neutron $k$-eigenvalue calculations using one-group and multigroup problems with analytical and semi-analytical reference solutions.
+This suite verifies MC/DC multigroup $k$-eigenvalue calculations using one-group and multigroup problems with analytical and semi-analytical reference solutions.
 It compares estimated multiplication factors and fundamental-mode flux shapes against dominant solutions of the corresponding transport eigenvalue problems.
 Verification checks for the expected $N_\mathrm{active}^{-1/2}$ statistical convergence as the number of active cycles increases.
 
