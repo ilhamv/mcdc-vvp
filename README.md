@@ -2,214 +2,49 @@
 
 ![MC/DC logo](https://raw.githubusercontent.com/mcdc-project/mcdc/main/assets/mcdc-logo.svg)
 
-[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+Run verification, validation, and performance campaigns for [MC/DC](https://github.com/mcdc-project/mcdc), orchestrated with [Maestro](https://github.com/LLNL/maestrowf).
 
-A collection of verification, validation, and performance (VVP) test suites for [MC/DC](https://github.com/mcdc-project/mcdc).
+## Quick local example
 
-The repository provides a unified framework for launching, processing, and organizing MC/DC-VVP campaigns on local workstations and HPC platforms.
-Each suite is self-contained and can be executed independently, while the top-level workflow enables reproducible campaign-wide execution.
-Workflow orchestration is performed using [Maestro](https://github.com/llnl/maestrowf).
+Start in this repository root with an MC/DC environment and the [campaign dependencies](https://mcdc.readthedocs.io/en/dev/project/vvp/campaigns/setup.html) installed.
 
-## Directory layout
+For a small fixed-source demonstration, set `configs/launch_config.py` to:
 
-```text
-configs/               Shared platform, user, and launch configurations
-verification/          Verification suites and their cases
-validation/            Validation suites and their cases
-performance/           Performance test suites and their cases
-results/               Processed results organized by suite
-release/               Flattened figures prepared as release assets
-
-launch.py              Launch all enabled suites
-process.py             Process suites and collect their results
-cleanup.py             Remove generated outputs and processed results
-prepare_release.py     Prepare figures for a GitHub release
+```python
+LAUNCH_CONFIG = {
+    "verification/analytical/multigroup/fixed_source": {
+        "enabled": True,
+        "platforms": ["local"],
+        "N_node": 1,
+    },
+}
 ```
 
-MC/DC-VVP uses **suite**, **case**, and **task** as standard terms for its organizational hierarchy:
+Set `verification/analytical/multigroup/fixed_source/task.yaml` to:
 
-```text
-suite
-└── case
-    └── task
+```yaml
+slab_absorbium:
+  logN_min: 3
+  logN_max: 4
+  N_task: 3
 ```
 
-- A **suite** is a self-contained collection of related VVP cases with a shared launch and processing workflow.
-- A **case** is one individual problem definition and its inputs, reference solution or data, and processing logic.
-- A **task** is one execution of a case at one sampling level, such as one `N_particle` or `N_active` value.
-
-A suite contains cases, and each case generates one or more tasks from the suite's `task.yaml` configuration.
-Maestro currently represents each case as one workflow step, and `run_case.py` executes that case's tasks sequentially.
-The hierarchy also defines restart behavior: an existing output skips its task, a case with all task outputs is omitted, and a suite with all cases complete does not launch.
-Every integrated suite provides a README that describes its layout, configuration, workflow, and cases.
-
-## Adding content
-
-To add a case, create its directory under the appropriate suite's `cases/`, implement the common files described in the suite README, and register its task sequence in the suite's `task.yaml`.
-Place data shared by multiple cases in the suite's `data/` directory when appropriate.
-A new suite should provide its own README, `launch.py`, `process.py`, and `cleanup.py`, then be registered in `configs/launch_config.py.template`.
-
-## Configurations
-
-### Launch configuration
-
-Create the local launch configuration:
-
-```bash
-cp configs/launch_config.py.template configs/launch_config.py
-```
-
-Edit `configs/launch_config.py` to enable the desired suites and set their platforms and launch options.
-Every suite defines a `platforms` list containing `"local"` and/or names from `configs/platform_config.py`.
-The list identifies the platforms on which that suite may be launched; it does not submit work to another machine.
-For HPC execution, `N_node` sets the number of nodes and each node uses all available resources.
-The parallel-performance suite instead uses `N_node_max` to generate every power-of-two node count through that value.
-Both performance suites preserve platform identity in their outputs and processed results.
-Parallel performance uses all GPUs on GPU-equipped platforms or all CPU cores on CPU-only platforms.
-For HPC execution, a suite's base `walltime` in hours is scaled by each case's `walltime_factor` in that suite's `task.yaml`.
-The scaled value is rounded up to the scheduler's supported resolution, the platform maximum remains the final limit, and local execution ignores walltime settings.
-
-### User configuration
-
-For HPC execution, also create `configs/user_config.py` from its template and provide the account and optional queue, reservation, and Python paths for the target platform.
-
-## Launching and processing
-
-### Launching suites
-
-Launch enabled suites whose `platforms` list contains `"local"`:
+Launch the three sampling tasks:
 
 ```bash
 python launch.py
 ```
 
-Launch enabled suites configured for a specific HPC platform:
-
-```bash
-python launch.py --platform tuolumne
-```
-
-The `--platform` option selects enabled suites whose configured `platforms` list contains that value.
-Run the command separately on each target machine.
-
-### Processing results
-
-Process registered suites and collect their results:
+After the Maestro study finishes, process and collect its results:
 
 ```bash
 python process.py
 ```
 
-For each suite registered in `configs/launch_config.py`, the top-level processor invokes the suite processor when a Maestro run is available and then moves the generated `results/` directory under the same suite path in the top-level `results/` directory.
-An existing suite `results/` directory can still be collected when no Maestro run is present, and suites with neither are skipped.
-Some suite processors require additional local configuration, such as data-directory paths or environment variables; consult the suite README before processing its results.
-Collecting a suite's results replaces that suite's existing top-level results.
-
-### Cleaning generated results
-
-Remove generated case outputs and processed results from every registered suite:
-
-```bash
-python cleanup.py
-```
-
-Run cleanup before launching when the entire configured campaign should start fresh.
-It removes Maestro run directories and retains reference data.
-
-### Preparing release assets
-
-Prepare the collected PNG and GIF figures for upload as GitHub release assets:
-
-```bash
-python prepare_release.py
-```
-
-The script recreates `release/`, copies every figure from `results/`, and replaces each directory boundary in its relative path with `--` to form a unique flat asset name.
-The structured files in `results/` are not modified.
-
-## Suites
-
-### Verification
-
-Verification is organized by method, transport formulation, and calculation type:
-
-```text
-verification/
-  analytical/
-    multigroup/
-      fixed_source/
-      k_eigenvalue/
-  code_to_code/
-    multigroup/
-      fixed_source/
-```
-
-Each case specifies its particle species and interaction data. The multigroup
-suites assess the shared transport formulation.
-
-#### Analytical verification
-
-Analytical verification demonstrates the expected statistical convergence of MC/DC by comparing numerical solutions against analytical and semi-analytical reference solutions as the sampling effort is increased.
-
-| Transport formulation | Suite | Description |
-| :------ | :---- | :---------- |
-| Multigroup | [Fixed-source](verification/analytical/multigroup/fixed_source/README.md) | Multigroup steady-state and transient cases, including a two-group manufactured solution, Reed's problem, AZURV1 variants, and infinite SHEM-361 benchmarks. |
-| Multigroup | [k-eigenvalue](verification/analytical/multigroup/k_eigenvalue/README.md) | Homogeneous and Kornreich-Parsons one-group slab benchmarks, plus infinite homogeneous SHEM-361 cases. |
-
-#### Code-to-code verification
-
-Code-to-code verification assesses whether relative differences among independently implemented transport codes decrease at the expected statistical rate as their sampling effort increases.
-Convergence proportional to $N^{-1/2}$ supports that the participating codes are approaching the same solution at the expected Monte Carlo rate, although agreement alone cannot exclude shared bias.
-The arithmetic mean of all participating code estimates at the largest sampling level defines a fixed comparison reference for every level, allowing a case to include two or more codes without designating one as exact.
-
-| Transport formulation | Suite | Description |
-| :------ | :---- | :---------- |
-| Multigroup | [Fixed-source](verification/code_to_code/multigroup/fixed_source/README.md) | Time-dependent C5G7 and Kobayashi comparisons among participating codes. |
-
-### Validation
-
-Validation suites compare MC/DC predictions against experimental measurements.
-
-| Physics | Suite | Description |
-| :------ | :---- | :---------- |
-| Neutron shielding | [SINBAD](validation/sinbad/README.md) | Experimental neutron leakage and flux spectra for the OKTAVIAN Si-60 and FNG/TUD SiC assemblies. |
-
-### Performance
-
-The performance suites evaluate computational performance, scalability, and efficiency across supported execution platforms.
-Total histories $N$, total runtime $T$ [s], and maximum relative variance $V$ [$\%^2$], expressed in percent squared and calculated using the largest-history result as the reference, are used to derive the performance metrics:
-
-- Tracking rate $N/T$: histories processed per second [histories/s].
-- Precision $1/V$: inverse maximum relative variance [$\%^{-2}$].
-- Precision rate $1/(VN)$: precision gained per history [$\%^{-2}$/history].
-- Figure of merit (FOM) $1/(TV)$: precision gained per second, equal to the product of tracking rate and precision rate [$\%^{-2}$/s].
-
-For parallel runs on $P$ nodes, tracking rate and FOM are reported per node as $N/(PT)$ and $1/(PTV)$, respectively.
-
-| Suite | Description |
-| :---- | :---------- |
-| [Serial](performance/serial/README.md) | Single-process Python and Numba studies. |
-| [Parallel](performance/parallel/README.md) | Full-node Numba strong- and weak-scaling studies. |
-
-#### Notional performance illustrations
-
-The following schematic plots illustrate the intended presentation of the parallel-performance metrics; their relative heights and trends are intentional, but the values are not simulation data or predictions for any platform or transport method.
-
-![Notional tracking-rate and FOM performance envelopes for synthetic CPU and GPU configurations.](.figures/performance_curves.png)
-
-![Notional performance-level and scaling-evidence summary at common histories-per-node workloads.](.figures/scaling_summary.png)
-
-The complete performance envelopes show how tracking rate and FOM per node vary with total histories, exposing startup overhead, workload saturation, and differences among node counts.
-For each platform-method combination, the node-count curves converge to a common asymptotic level.
-A vertical slice through the node-count curves at fixed total histories gives a direct strong-scaling comparison; ideal per-node performance aligns the intersections, while greater downward separation as the node count grows indicates reduced strong-scaling efficiency.
-For weak scaling, compare points at fixed histories per node; ideal per-node performance places those points on a horizontal line, while a downward departure as the node count grows indicates reduced weak-scaling efficiency.
-
-Parallel results pair a detailed **Performance envelope** with a **Performance level + scaling evidence** summary at common histories-per-node workloads.
-The summary compares weak scaling to the left of its main bar and workload sensitivity, as indirect strong-scaling evidence, to its right.
-A substantial drop from the left wing toward the main bar indicates poor weak-scaling efficiency; a substantial drop from the main bar toward the right indicates sensitivity to decreasing work per node and warns of poor strong-scaling efficiency.
-Interpolation is marked and restricted to measured ranges; the envelope indicates whether the selected level is near saturation.
+Find the plots and saved configuration in `results/verification/analytical/multigroup/fixed_source/`. Use `python prepare_release.py` to prepare the PNG/GIF assets in `release/`.
 
 ## Documentation
 
-This README and the suite READMEs describe how to configure, run, and process VVP campaigns.
-The [VVP section of the MC/DC documentation](https://mcdc.readthedocs.io/en/dev/project/vvp/index.html) presents problem definitions, reference solutions, and published campaign results.
+- [Operating campaigns](https://mcdc.readthedocs.io/en/dev/project/vvp/campaigns/index.html): setup, HPC execution, resuming, processing, cleanup, and publication.
+- [VVP overview and suites](https://mcdc.readthedocs.io/en/dev/project/vvp/index.html): verification, validation, performance, and their evidence.
+- [Contributing cases and suites](https://mcdc.readthedocs.io/en/dev/project/vvp/contributing.html).

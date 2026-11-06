@@ -1,111 +1,66 @@
 # Code-to-Code Multigroup Fixed-Source Verification
 
-This suite compares multigroup fixed-source transport results from multiple independently implemented codes.
-The current participating codes are MC/DC and OpenMC, and the workflow is intended to accommodate additional codes.
-It exercises time-dependent multigroup transport, moving geometry, delayed neutrons, void streaming, and multidimensional space-time tallies.
-The arithmetic mean of the participating code estimates at the largest sampling level defines the fixed comparison reference for every level.
-The reported metrics are the pair-averaged L2 norm and maximum absolute pairwise relative difference normalized by that fixed reference.
-Verification checks for $N^{-1/2}$ decay in both metrics as the participating calculations scale their sampling efforts together.
-Observing that rate supports that the codes are converging statistically toward the same solution, while a plateau can indicate bias or a modeling discrepancy.
-Agreement does not by itself establish correctness because independently implemented codes can still share a common bias.
+Run this suite independently or through the repository-wide launcher.
+The [suite documentation](https://mcdc.readthedocs.io/en/dev/project/vvp/verification/code_to_code/multigroup/fixed_source/index.html) contains the case catalog, problem definitions, references, and interpretation. See [Verification Workflows](https://mcdc.readthedocs.io/en/dev/project/vvp/campaigns/verification.html) for the complete operating guide.
 
-The suite can be executed independently or as part of the top-level MC/DC-VVP workflow.
+## Configure
 
-## Directory layout
+Select cases in `task.yaml` using `logN_min`, `logN_max`, `N_task`, and `walltime_factor`. Tasks vary particles per batch; `input.py` defines the batch count, which must match the participating-code comparison data. The supplied cases use 30 batches.
+C5G7 uses `data/MGXS-C5G7.h5`.
 
-```text
-cases/              Verification case definitions and processing scripts
-data/               Shared multigroup cross-section data
-maestro_run_*/      Generated Maestro workflow directories
-results/
-  launch_config.yaml Effective suite launch configuration
-  task.yaml          Task-generation configuration used by the launch
-  convergence/      Statistical-convergence figures
-  reference/        Largest-sample fixed-reference figures and animations
-  comparison/       Largest-sample comparison and difference animations
-
-task.yaml           Configure task generation for each case
-study.yaml          Generated Maestro study definition
-
-launch.py           Build and launch the Maestro study
-run_case.py         Run the tasks for one case
-process.py          Process a completed Maestro study
-
-cleanup.py          Remove generated outputs and figures
-util.py             Provide shared processing and plotting utilities
-```
-
-Each case contains a common set of files:
-
-```text
-input.py            Define and run the MC/DC model
-reference.py        Obtain participating-code comparison outputs
-process.py          Evaluate code-to-code convergence
-plot.py             Plot or animate participating-code results
-```
-
-## Configuration
-
-The `task.yaml` file selects the cases and defines the particle-count range and number of tasks for each case.
-One task is one MC/DC execution at one generated `N_particle` value, paired during processing with the corresponding result from every participating code.
-Each case defines a `walltime_factor` that scales the launch-level walltime for HPC execution.
-The base walltime is specified in hours, and the scaled value is rounded up to the scheduler resolution and limited by the platform maximum.
-For example, a base of `1.5` hours gives C5G7 1 hour 30 minutes and Kobayashi 45 minutes.
-Local execution ignores walltime.
-Each case uses 30 batches, matching the corresponding participating-code campaign.
-Processing reads the batch count from each output and multiplies it by the particle count per batch to obtain the total number of histories.
-The largest particle-count task supplies the participating results used to construct the fixed comparison reference.
-
-The OpenMC statepoints are canonical external comparison data because they are too large to track in this repository.
-Download and checksum them from their Zenodo records before processing:
+Download and checksum external OpenMC statepoints before processing:
 
 ```bash
 python cases/c5g7-4phase/reference.py
 python cases/kobayashi/reference.py
 ```
 
-HPC runs use the shared platform settings in the repository's `configs/platform_config.py` and the user-specific settings in `configs/user_config.py`.
-The `N_node` option sets the number of nodes, with all available CPU cores used on each node.
+The `kobayashi-detector` downloader still points to a baseline archive placeholder. Supply detector-specific reference outputs before processing that case; baseline flux statepoints are not detector-capture references.
 
-## Launching and processing
+## Launch and resume
 
-From this suite directory, launch the study locally:
+Run commands from this suite directory. Choose local execution:
 
 ```bash
 python launch.py
 ```
 
-Launch the study on a supported HPC platform:
+Or launch on the configured HPC platform:
 
 ```bash
-python launch.py --platform tuolumne --N_node 1
+python launch.py --platform tuolumne --N_node 1 --walltime 1.0
 ```
 
-Use `--walltime HOURS` to set the base walltime.
-Cases with all five MC/DC outputs are omitted from the Maestro study, while partially complete cases run only their missing particle levels.
-Run `python cleanup.py` before launching to remove existing case outputs and start the suite fresh.
-Cleanup also removes processed results, generated Maestro run directories, and the untracked `study.yaml`.
+`N_node` sets nodes per case, using the configured CPU cores on each node. `--walltime` is a base duration in hours, scaled by each case's `walltime_factor`, rounded up to scheduler resolution, and capped at the platform limit. Local execution ignores walltime.
+Shared platform and account/interpreter settings come from the repository's `configs/` directory.
 
-After all jobs have completed and the participating-code comparison data are available, process the latest Maestro run:
+Completed task outputs are skipped on relaunch; complete cases are omitted from the study. Preserve old outputs separately before changing the problem or sampling configuration.
+
+## Process
+
+After jobs finish, process the latest saved study:
 
 ```bash
 python process.py
 ```
 
-Pass a Maestro run directory to process a specific run:
+Or select one explicitly:
 
 ```bash
 python process.py maestro_run_<timestamp>
 ```
 
-Convergence figures are written to `results/convergence/`.
-Fixed-reference figures and animations are written to `results/reference/`.
-Animated spatial comparisons and relative-difference evolution at the largest shared sample size are written to `results/comparison/`.
-Each case may produce `reference_*.png` figures or `reference_*.gif` animations from the arithmetic mean of the largest-sample participating-code estimates.
-Spatial cases produce `comparison.gif` and `difference.gif`; detector histories produce `comparison.png` and `difference.png`.
-The top-level `process.py` collects these figures under the repository's `results/` directory.
+Processing uses the saved launch/task configurations. Keep the saved study and its outputs together.
 
-Each case's `plot.py` can inspect participating-code results at a selected sampling level using their largest-sample estimates as the fixed comparison reference:
+## Outputs and inspection
+
+- `cases/<case>/output_<N_particle>.h5`: MC/DC results.
+- `cases/<case>/reference/`: participating-code comparison files.
+- `results/convergence/`: pairwise convergence figures.
+- `results/reference/`: fixed-reference figures and animations.
+- `results/comparison/`: largest-shared-sample comparisons and differences.
+
+To inspect a baseline Kobayashi sampling point:
 
 ```bash
 python cases/kobayashi/plot.py \
@@ -115,40 +70,8 @@ python cases/kobayashi/plot.py \
     cases/kobayashi/reference/output_4.h5
 ```
 
-## Cases
+`results/launch_config.yaml` and `results/task.yaml` preserve the processed configuration. The root processor moves suite results under the same suite path in the repository's `results/` tree.
 
-| Case | Description |
-| :--- | :---------- |
-| [`c5g7-4phase`](cases/c5g7-4phase/) | Four-phase C5G7 transient with a pulsed source and continuously moving control rods. |
-| [`kobayashi`](cases/kobayashi/) | Pulsed three-dimensional Kobayashi dog-leg shielding problem with a void channel. |
-| [`kobayashi-detector`](cases/kobayashi-detector/) | Pulsed multiplying dog-leg problem with a time-resolved detector capture tally. |
+## Cleanup
 
-### Four-phase C5G7 transient
-
-This seven-group problem adapts the heterogeneous C5G7-TD core into four source- and control-rod-driven phases over 20 seconds.
-The quantity of interest is the pin-pitch-resolved space-time fission-rate distribution.
-The MC/DC model uses the canonical cross sections in `data/MGXS-C5G7.h5`, while the OpenMC statepoints are provided by the associated Zenodo record.
-
-### Time-dependent Kobayashi dog-leg
-
-The `kobayashi` case adapts the steady-state, one-group Kobayashi shielding benchmark by pulsing an isotropic source uniformly over time [0, 50] in a 10 × 10 × 10 source region.
-Particles stream through a three-dimensional dog-leg channel containing a weakly interacting material, surrounded by a scattering and absorbing shield.
-The quantities of interest are the space-time flux distribution on a unit-spaced three-dimensional mesh and the total neutron density, recorded in 100 time bins over [0, 200].
-The OpenMC statepoints for this baseline case are provided by the associated Zenodo record.
-
-The `kobayashi-detector` case extends this model with localized prompt-fission multiplication and a detector response at the channel exit.
-It retains the outer dimensions, dog-leg channel layout, source pulse, unit neutron speed, and reflective and vacuum outer boundary conditions of the baseline.
-A 10 cm fuel cube occupies x = [30, 40], y = [50, 60], z = [0, 10] at the second channel turn.
-The fuel has scattering and fission cross sections of 0.05 each, zero capture, and prompt fission multiplicity 2.5.
-A 10 cm detector cube occupies x = [30, 40], y = [90, 100], z = [30, 40] at the outlet and uses the shield material.
-These material, geometry, and source definitions match `mcdc/examples/kobayashi-dogleg/pulsed_with_fission/input.py`.
-
-The detector variant scores only capture integrated over the detector volume and each time bin, normalized per source particle.
-It replaces the baseline flux-map and density tallies with 500 unit-width time bins over [0, 500], extending the observation window and refining the time resolution.
-
-## References
-
-- I. Variansyah, [*Four-Phase C5G7 Transient Benchmark for Neutron Transport*](https://doi.org/10.5281/zenodo.15719118), Zenodo, 2025.
-- I. Variansyah, [*Time-Dependent Kobayashi Dog-Leg Benchmark for Neutron Transport*](https://doi.org/10.5281/zenodo.15069882), Zenodo, 2025.
-- J. Hou, K. N. Ivanov, V. F. Boyarinov, and P. A. Fomichenko, [*OECD/NEA Benchmark for Time-Dependent Neutron Transport Calculations Without Spatial Homogenization*](https://doi.org/10.1016/j.nucengdes.2017.02.008), Nuclear Engineering and Design, vol. 317, pp. 177–189, 2017.
-- K. Kobayashi, N. Sugimura, and Y. Nagaya, [*3D Radiation Transport Benchmark Problems and Results for Simple Geometries with Void Region*](https://doi.org/10.1016/S0149-1970(01)00007-5), Progress in Nuclear Energy, vol. 39, no. 2, pp. 119–144, 2001.
+After jobs stop, `python cleanup.py` removes case outputs, processed results, Maestro directories, and the generated `study.yaml`. Inputs and reference data are retained.
