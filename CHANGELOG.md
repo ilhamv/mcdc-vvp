@@ -25,6 +25,8 @@ Target release: 0.16.0, the first versioned MC/DC-VVP release.
 
 ### Changed
 
+- Require explicit task walltime in hours, replace walltime factors with uniform launch overrides, and store parallel workload walltimes in task configuration.
+
 - Align the verification, serial-performance, and parallel-performance `kobayashi-detector` models with the MC/DC `pulsed_with_fission` example, using cubic fuel and detector regions and equal scattering and fission fuel cross sections of 0.05 cm⁻¹, from [@ilhamv]
 
 - Distribute the analytical fixed-source slab cases across the $x$, $y$, and $z$ axes to exercise every Cartesian slab orientation, from [@ilhamv]
@@ -33,7 +35,7 @@ Target release: 0.16.0, the first versioned MC/DC-VVP release.
 - Standardize **suite**, **case**, and **task** as the VVP repository's organizational terminology, from [@ilhamv]
 - Organize fixed-source cases around consistent input, reference, processing, and optional plotting scripts, from [@ilhamv]
 - Reorganize legacy neutron benchmarks as code-to-code verification cases without separate continuous-energy and multigroup directory levels, from [@ilhamv]
-- Use `N_node` for HPC resource selection, apply case-specific `walltime_factor` values to suite base walltimes, and skip completed tasks while retaining partial results, from [@ilhamv]
+- Use `N_node` for HPC resource selection and skip completed tasks while retaining partial results, from [@ilhamv]
 - Refine the FNG/TUD SiC correlated source representation to 32 angular intervals with 72-point conditional energy distributions, from [@ilhamv]
 - Organize processed results into convergence, reference, and comparison outputs and collect them through the top-level processing workflow, from [@ilhamv]
 - Consolidate the canonical SHEM-361 multigroup dataset under the analytical fixed-source suite for reuse by all SHEM-361 cases, from [@ilhamv]

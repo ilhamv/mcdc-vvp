@@ -5,14 +5,14 @@ The [suite documentation](https://mcdc.readthedocs.io/en/dev/project/vvp/verific
 
 ## Configure
 
-Select cases in `task.yaml` using `N_active_min`, `N_active_max`, `N_task`, and optional `walltime_factor`:
+Select cases in `task.yaml` using `N_active_min`, `N_active_max`, `N_task`, and required `walltime` in hours:
 
 ```yaml
 one_group_slab:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime_factor: 0.21
+  walltime: 0.21
 ```
 
 Tasks vary geometrically spaced active-cycle counts. Particles per cycle and inactive cycles are fixed in each `input.py`; establish them with a preliminary source-convergence study. Multigroup data are shared at `../fixed_source/data/SHEM-361.npz`.
@@ -31,7 +31,7 @@ Or launch on the configured HPC platform:
 python launch.py --platform tuolumne --N_node 1 --walltime 1.0
 ```
 
-`N_node` sets nodes per case, using the configured CPU cores on each node. `--walltime` is a base duration in hours, scaled by each case's `walltime_factor`, rounded up to scheduler resolution, and capped at the platform limit. Local execution ignores walltime.
+`N_node` sets nodes per case, using the configured CPU cores on each node. Required `walltime` in `task.yaml` specifies hours for the entire case job. `--walltime` overrides all job durations uniformly; requests are rounded up and capped at the platform limit. Local execution ignores the limit but still requires a valid task value.
 Shared platform and account/interpreter settings come from the repository's `configs/` directory.
 
 Completed task outputs are skipped on relaunch; complete cases are omitted from the study. Preserve old outputs separately before changing the problem or sampling configuration.

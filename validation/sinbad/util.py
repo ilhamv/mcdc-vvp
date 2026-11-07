@@ -44,7 +44,12 @@ def load_tasks(task_file):
             if not isinstance(task, dict):
                 raise ValueError(
                     f"Task '{benchmark}/{case}' must define N_particle and "
-                    "walltime_factor."
+                    "walltime in hours."
+                )
+
+            if "walltime_factor" in task:
+                raise ValueError(
+                    "Replace walltime_factor with required walltime in hours."
                 )
 
             N_particle = task.get("N_particle")
@@ -57,16 +62,14 @@ def load_tasks(task_file):
                     f"Particle count for '{benchmark}/{case}' must be a positive integer."
                 )
 
-            walltime_factor = task.get("walltime_factor")
+            walltime = task.get("walltime")
             if (
-                isinstance(walltime_factor, bool)
-                or not isinstance(walltime_factor, (int, float))
-                or not math.isfinite(walltime_factor)
-                or walltime_factor <= 0.0
+                isinstance(walltime, bool)
+                or not isinstance(walltime, (int, float))
+                or not math.isfinite(walltime)
+                or walltime <= 0.0
             ):
-                raise ValueError(
-                    f"Walltime factor for '{benchmark}/{case}' must be positive."
-                )
+                raise ValueError(f"Walltime for '{benchmark}/{case}' must be positive.")
 
             tasks.append((benchmark, case, task))
 

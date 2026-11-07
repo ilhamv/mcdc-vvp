@@ -27,6 +27,7 @@ slab_absorbium:
   logN_min: 3
   logN_max: 4
   N_task: 3
+  walltime: 0.1  # Illustrative hours; ignored for local execution.
 ```
 
 Launch the three sampling tasks:

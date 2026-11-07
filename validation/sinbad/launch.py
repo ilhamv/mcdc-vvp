@@ -23,7 +23,7 @@ if str(REPO_DIR) not in sys.path:
 # ======================================================================================
 
 from configs.platform_config import PLATFORMS
-from configs.util import get_case_walltime
+from configs.util import get_case_walltime, get_task_walltime
 from util import case_directory, load_tasks, output_file
 
 try:
@@ -43,7 +43,7 @@ parser.add_argument(
     "--walltime",
     type=float,
     default=None,
-    help="Set the base walltime in hours; each case scales it by walltime_factor.",
+    help="Override every case job walltime uniformly, in hours.",
 )
 args = parser.parse_args()
 
@@ -63,6 +63,9 @@ run_case = suite_dir / "run_case.py"
 study_file = suite_dir / "study.yaml"
 
 task_config, tasks = load_tasks(task_file)
+
+for benchmark, case, task in tasks:
+    get_task_walltime(task, args.walltime)
 
 
 # ======================================================================================

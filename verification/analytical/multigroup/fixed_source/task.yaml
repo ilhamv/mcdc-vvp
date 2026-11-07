@@ -1,3 +1,9 @@
+# Walltime is required for every case/mode job, in hours.
+# Migration basis: previous 0.6-hour base multiplied by each former case/mode factor.
+# Values are provisional carry-forwards; recalibration is pending.
+# Calibration comments should record platform/resources, workload, measured time,
+# and margin. A launch --walltime overrides all job requests uniformly.
+
 # =============================================================================
 # MC/DC Verification Task Definitions
 # =============================================================================
@@ -45,88 +51,88 @@ azurv1:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 0.45
+  walltime: 0.27
 
 azurv1-basic_techniques:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 0.45
+  walltime: 0.27
 
 azurv1-weight_windows:
   logN_min: 4
   logN_max: 6
   N_task: 7
-  walltime_factor: 0.45
+  walltime: 0.27
 
 azurv1-census:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 0.50
+  walltime: 0.3
 
 azurv1-census-tally:
   logN_min: 4
   logN_max: 6
   N_task: 7
-  walltime_factor: 0.40
+  walltime: 0.24
 
 azurv1_sub:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 0.40
+  walltime: 0.24
 
 azurv1_super:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 0.45
+  walltime: 0.27
 
 slab_absorbium:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 0.45
+  walltime: 0.27
 
 slab_isobeam_td:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 0.45
+  walltime: 0.27
 
 inf_shem361:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 0.55
+  walltime: 0.33
 
 inf_shem361-weight_windows:
   logN_min: 3
   logN_max: 5
   N_task: 7
-  walltime_factor: 0.50
+  walltime: 0.3
 
 inf_shem361_td:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 0.70
+  walltime: 0.42
 
 inf_shem361_td-census:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 1.00
+  walltime: 0.6
 
 reed:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime_factor: 0.45
+  walltime: 0.27
 
 mms_two_group_slab:
   logN_min: 4
   logN_max: 6
   N_task: 7
-  walltime_factor: 0.50
+  walltime: 0.3

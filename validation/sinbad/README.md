@@ -14,11 +14,11 @@ Configure `task.yaml` as a benchmark/case mapping:
 oktavian-si-60:
   neutron_leakage:
     N_particle: 1_000_000_000
-    walltime_factor: 0.34
+    walltime: 8.16
 fng-tud-sic:
   p1:
     N_particle: 1_000_000_000
-    walltime_factor: 0.01
+    walltime: 0.24
 ```
 
 This is an excerpt; the supplied file also configures `p2`, `p3`, and `p4`. `N_particle` is particles per batch; batch count is set in each input.
@@ -39,8 +39,7 @@ Or run on the configured cluster:
 python launch.py --platform dane --N_node 10 --walltime 24
 ```
 
-Each case uses the selected nodes and configured CPU cores. Walltime in hours is scaled by the case factor, rounded up to scheduler resolution, and capped at the platform maximum. Local execution requires one node and ignores walltime.
-Supplied factors were calibrated for ten-node Dane runs; recalibrate for different workloads/platforms.
+Each case uses the selected nodes and configured CPU cores. Each task requires `walltime` in hours; `--walltime` overrides all jobs uniformly. Requests are rounded up and capped at the platform maximum. Local execution requires one node and ignores time limits but validates task values. Document calibration in task comments; recalibration of the carried-forward requests is pending.
 Existing `output_<N_particle>.h5` files are skipped. Preserve old outputs separately before changing inputs.
 Shared platform and account/interpreter settings come from `configs/`.
 

@@ -1,3 +1,13 @@
 kobayashi-detector:
   method: Analog
   N_particle_base: 30_000_000
+  # Explicit hours per workload multiplier, shared across node counts.
+  # Migration basis: former 1.5-hour baseline times multiplier; includes the
+  # previous 50% nominal margin. These are not new platform calibrations.
+  # Recalibration pending: record hardware/resources, workload and measured time.
+  walltime:
+    1: 1.5
+    2: 3.0
+    4: 6.0
+    8: 12.0
+    16: 24.0

@@ -22,10 +22,9 @@ if str(REPO_DIR) not in sys.path:
 # ======================================================================================
 
 from configs.platform_config import PLATFORMS
-from configs.util import get_case_walltime
+from configs.util import get_case_walltime, get_task_walltime
 from util import (
     NODE_COUNTS,
-    WALLTIME_BASE_HOURS,
     case_directory,
     platform_resources,
     task_output_complete,
@@ -57,6 +56,12 @@ parser.add_argument(
     "--dry_run",
     action="store_true",
     help="Write the platform-specific study file without submitting it.",
+)
+parser.add_argument(
+    "--walltime",
+    type=float,
+    default=None,
+    help="Override every matrix job walltime uniformly, in hours.",
 )
 args = parser.parse_args()
 
@@ -101,6 +106,8 @@ if account is None:
 with task_file.open("r") as stream:
     task_config = yaml.safe_load(stream)
 tasks = performance_tasks(task_config, args.N_node_max, args.platform)
+for task in tasks:
+    get_task_walltime(task, args.walltime)
 
 
 # ======================================================================================
@@ -123,11 +130,7 @@ for task in tasks:
         print(f"Skip complete task: {task['name']}")
         continue
 
-    walltime = get_case_walltime(
-        {"walltime_factor": task["workload_multiplier"]},
-        platform,
-        WALLTIME_BASE_HOURS,
-    )
+    walltime = get_case_walltime(task, platform, args.walltime)
     case_walltimes[task["name"]] = walltime
     command = (
         f"{shlex.quote(mcdc_python)} {shlex.quote(str(run_case))} "
@@ -261,7 +264,7 @@ launch_config = {
     "cpu_cores_per_node": cpu_cores,
     **resources,
     "output_layout": 2,
-    "walltime_base_hours": WALLTIME_BASE_HOURS,
+    "walltime": args.walltime,
     "task_walltimes": case_walltimes,
     "mcdc_python": mcdc_python,
 }

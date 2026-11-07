@@ -26,7 +26,7 @@ if str(REPO_DIR) not in sys.path:
 # ======================================================================================
 
 from configs.platform_config import PLATFORMS
-from configs.util import case_outputs_complete, get_case_walltime
+from configs.util import case_outputs_complete, get_case_walltime, get_task_walltime
 
 # User overrides are optional for local runs.
 try:
@@ -53,7 +53,7 @@ parser.add_argument(
     "--walltime",
     type=float,
     default=None,
-    help="Set the base walltime in hours; each case scales it by walltime_factor.",
+    help="Override every case job walltime uniformly, in hours.",
 )
 args = parser.parse_args()
 
@@ -117,6 +117,9 @@ if not local:
 
 with task_file.open("r") as f:
     tasks = yaml.safe_load(f)
+
+for case_name, task in tasks.items():
+    get_task_walltime(task, args.walltime)
 
 
 # ======================================================================================

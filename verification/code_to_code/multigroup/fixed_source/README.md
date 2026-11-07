@@ -5,7 +5,7 @@ The [suite documentation](https://mcdc.readthedocs.io/en/dev/project/vvp/verific
 
 ## Configure
 
-Select cases in `task.yaml` using `logN_min`, `logN_max`, `N_task`, and `walltime_factor`. Tasks vary particles per batch; `input.py` defines the batch count, which must match the participating-code comparison data. The supplied cases use 30 batches.
+Select cases in `task.yaml` using `logN_min`, `logN_max`, `N_task`, and required `walltime` in hours. Tasks vary particles per batch; `input.py` defines the batch count, which must match the participating-code comparison data. The supplied cases use 30 batches.
 C5G7 uses `data/MGXS-C5G7.h5`.
 
 Download and checksum external OpenMC statepoints before processing:
@@ -31,7 +31,7 @@ Or launch on the configured HPC platform:
 python launch.py --platform tuolumne --N_node 1 --walltime 1.0
 ```
 
-`N_node` sets nodes per case, using the configured CPU cores on each node. `--walltime` is a base duration in hours, scaled by each case's `walltime_factor`, rounded up to scheduler resolution, and capped at the platform limit. Local execution ignores walltime.
+`N_node` sets nodes per case, using the configured CPU cores on each node. Required `walltime` in `task.yaml` specifies hours for the entire case job. `--walltime` overrides all job durations uniformly; requests are rounded up and capped at the platform limit. Local execution ignores the limit but still requires a valid task value.
 Shared platform and account/interpreter settings come from the repository's `configs/` directory.
 
 Completed task outputs are skipped on relaunch; complete cases are omitted from the study. Preserve old outputs separately before changing the problem or sampling configuration.

@@ -12,10 +12,10 @@ if str(REPO_DIR) not in sys.path:
 
 from performance.metrics import output_complete, tally_score_paths
 from configs.platform_config import PLATFORMS
+from configs.util import get_task_walltime
 
 NODE_COUNTS = (1, 2, 4, 8, 16, 32, 64, 128)
 WORKLOAD_MULTIPLIERS = (1, 2, 4, 8, 16)
-WALLTIME_BASE_HOURS = 1.5
 
 
 def _positive_integer(value, label):
@@ -39,7 +39,6 @@ def performance_task(case_name, N_particle_base, N_node, multiplier, platform="d
         "workload_multiplier": multiplier,
         "N_particle": N_particle_base * N_node * multiplier,
         "total_multiplier": N_node * multiplier,
-        "walltime_hours": WALLTIME_BASE_HOURS * multiplier,
         "name": f"{case_name.replace('-', '_')}_{platform}_n{N_node:03d}_m{multiplier:02d}",
     }
 
@@ -62,6 +61,21 @@ def performance_tasks(config, N_node_max=128, platform="dane"):
             raise ValueError(
                 f"Configuration for {case_name!r} requires N_particle_base."
             )
+        if "walltime_factor" in settings:
+            raise ValueError(
+                "Replace walltime_factor with a walltime workload mapping."
+            )
+        walltimes = settings.get("walltime")
+        if not isinstance(walltimes, dict):
+            raise ValueError(
+                f"{case_name} requires walltime hours for every workload multiplier."
+            )
+        for multiplier in WORKLOAD_MULTIPLIERS:
+            if multiplier not in walltimes:
+                raise ValueError(
+                    f"Missing walltime for {case_name}, multiplier {multiplier}."
+                )
+            get_task_walltime({"walltime": walltimes[multiplier]})
         baseline = settings["N_particle_base"]
         if isinstance(baseline, dict):
             if platform not in baseline:
@@ -77,6 +91,7 @@ def performance_tasks(config, N_node_max=128, platform="dane"):
                 task = performance_task(
                     case_name, N_particle_base, N_node, multiplier, platform
                 )
+                task["walltime"] = walltimes[multiplier]
                 task["comparison"] = settings.get("comparison", case_name)
                 task["method"] = settings.get("method", "Numba")
                 if not isinstance(task["method"], str) or not task["method"].strip():

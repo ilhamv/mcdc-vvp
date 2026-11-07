@@ -12,40 +12,39 @@ def case_outputs_complete(case_dir, sample_counts):
     )
 
 
-def get_case_walltime(task, platform, walltime_base=None):
-    """Scale the launch walltime for one case and apply the platform limit."""
-    walltime_factor = task.get("walltime_factor", 1.0)
+def get_task_walltime(task, walltime_override=None):
+    """Validate required task hours, then apply an optional uniform override."""
+    if "walltime_factor" in task:
+        raise ValueError("Replace walltime_factor with required walltime in hours.")
+    if "walltime" not in task:
+        raise ValueError("Each task must define walltime in hours.")
 
-    # Validate the optional launch-wide base duration.
-    if walltime_base is not None and (
-        isinstance(walltime_base, bool)
-        or not isinstance(walltime_base, (int, float))
-        or not math.isfinite(walltime_base)
-        or walltime_base <= 0.0
-    ):
-        raise ValueError("Launch walltime must be greater than zero.")
+    def validate(value, label):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value <= 0.0
+        ):
+            raise ValueError(f"{label} must be a finite number greater than zero.")
+        return value
 
-    # Validate the multiplier supplied by the individual case.
-    if (
-        isinstance(walltime_factor, bool)
-        or not isinstance(walltime_factor, (int, float))
-        or not math.isfinite(walltime_factor)
-        or walltime_factor <= 0.0
-    ):
-        raise ValueError("Case walltime_factor must be greater than zero.")
+    hours = validate(task["walltime"], "Task walltime")
+    if walltime_override is not None:
+        hours = validate(walltime_override, "Launch walltime")
+    return hours
 
-    # Use the platform limit as the base when the launch does not specify one.
-    if walltime_base is None:
-        walltime_base = platform["max_walltime_hours"]
+
+def get_case_walltime(task, platform, walltime_override=None):
+    """Format task or override hours, rounded and capped for the scheduler."""
+    hours = get_task_walltime(task, walltime_override)
 
     # Round up to the scheduler resolution, then enforce the platform limit.
     resolution = platform["walltime_resolution_seconds"]
     max_seconds = (
         math.floor(platform["max_walltime_hours"] * 3600.0 / resolution) * resolution
     )
-    walltime_seconds = (
-        math.ceil(walltime_base * walltime_factor * 3600.0 / resolution) * resolution
-    )
+    walltime_seconds = math.ceil(hours * 3600.0 / resolution) * resolution
     walltime_seconds = min(walltime_seconds, max_seconds)
 
     # Convert seconds into the scheduler-specific walltime syntax.

@@ -1,11 +1,17 @@
+# Walltime is required for every case/mode job, in hours.
+# Migration basis: previous 24-hour base multiplied by each former case/mode factor.
+# Values are provisional carry-forwards; recalibration is pending.
+# Calibration comments should record platform/resources, workload, measured time,
+# and margin. A launch --walltime overrides all job requests uniformly.
+
 kobayashi-detector:
   numba:
     logN_min: 1
     logN_max: 6
     N_task: 11
-    walltime_factor: 1.0
+    walltime: 24
   python:
     logN_min: 1
     logN_max: 4
     N_task: 7
-    walltime_factor: 1.0
+    walltime: 24

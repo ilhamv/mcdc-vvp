@@ -13,15 +13,15 @@ kobayashi-detector:
     logN_min: 1
     logN_max: 6
     N_task: 11
-    walltime_factor: 1.0
+    walltime: 24.0
   python:
     logN_min: 1
     logN_max: 4
     N_task: 7
-    walltime_factor: 1.0
+    walltime: 24.0
 ```
 
-Omit a mode to disable it. Each case-mode job runs its own sampling points sequentially; modes schedule independently. Batch counts come from `input.py`.
+Omit a mode to disable it. Each case-mode job runs its own sampling points sequentially; modes schedule independently. Each mode block requires `walltime` in hours. Batch counts come from `input.py`.
 The supplied [Kobayashi detector input](cases/kobayashi-detector/input.py) defines its multigroup materials directly.
 
 ## Launch and resume
@@ -38,7 +38,7 @@ Or use the configured cluster:
 python launch.py --platform dane --walltime 1.0
 ```
 
-Each cluster job requests one process on one exclusive node. Walltime in hours is scaled by the mode's factor, rounded up to scheduler resolution, and capped at the platform maximum. If omitted, the platform maximum is the base; local runs ignore walltime.
+Each cluster job requests one process on one exclusive node. Each mode block requires `walltime` in hours; `--walltime` overrides all jobs uniformly. Requests are rounded up and capped at the platform maximum. Local runs ignore the limit but require valid values.
 
 Outputs are stored as `cases/<case>/outputs/<platform>/output_<mode>_<N_particle>.h5`. Completed compatible outputs are skipped independently per mode. Outputs must contain full tallies; preserve incompatible older outputs separately before regenerating them.
 Caching is disabled, and measured runtime includes compilation and full tally output.

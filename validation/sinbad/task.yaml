@@ -1,18 +1,24 @@
+# Walltime is required for every case/mode job, in hours.
+# Migration basis: previous 24-hour base on ten-node Dane multiplied by each former case/mode factor.
+# Values are provisional carry-forwards; recalibration is pending.
+# Calibration comments should record platform/resources, workload, measured time,
+# and margin. A launch --walltime overrides all job requests uniformly.
+
 oktavian-si-60:
   neutron_leakage:
     N_particle: 1_000_000_000
-    walltime_factor: 0.34
+    walltime: 8.16
 
 fng-tud-sic:
   p1:
     N_particle: 1_000_000_000
-    walltime_factor: 0.01
+    walltime: 0.24
   p2:
     N_particle: 1_000_000_000
-    walltime_factor: 0.00875
+    walltime: 0.21
   p3:
     N_particle: 1_000_000_000
-    walltime_factor: 0.00875
+    walltime: 0.21
   p4:
     N_particle: 1_000_000_000
-    walltime_factor: 0.00875
+    walltime: 0.21

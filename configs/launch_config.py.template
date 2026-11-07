@@ -1,37 +1,39 @@
+# Optional walltime (hours) uniformly overrides required task.yaml requests.
 LAUNCH_CONFIG = {
     "verification/analytical/multigroup/fixed_source": {
         "enabled": False,
         "platforms": ["local", "dane"],
         "N_node": 1,
-        "walltime": 0.6,
+        "walltime": None,
     },
     "verification/analytical/multigroup/k_eigenvalue": {
         "enabled": False,
         "platforms": ["local", "dane"],
         "N_node": 1,
-        "walltime": 1.0,
+        "walltime": None,
     },
     "verification/code_to_code/multigroup/fixed_source": {
         "enabled": False,
         "platforms": ["local", "dane"],
         "N_node": 20,
-        "walltime": 24.0,
+        "walltime": None,
     },
     "validation/sinbad": {
         "enabled": False,
         "platforms": ["local", "dane"],
         "N_node": 10,
-        "walltime": 24.0,
+        "walltime": None,
         "sinbad_root": None,
     },
     "performance/serial": {
         "enabled": False,
         "platforms": ["local", "dane"],
-        "walltime": 24.0,
+        "walltime": None,
     },
     "performance/parallel": {
         "enabled": False,
         "platforms": ["dane", "tuolumne"],
         "N_node_max": 128,
+        "walltime": None,
     },
 }

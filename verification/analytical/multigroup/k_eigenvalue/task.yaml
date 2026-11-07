@@ -1,3 +1,9 @@
+# Walltime is required for every case/mode job, in hours.
+# Migration basis: previous 1-hour base multiplied by each former case/mode factor.
+# Values are provisional carry-forwards; recalibration is pending.
+# Calibration comments should record platform/resources, workload, measured time,
+# and margin. A launch --walltime overrides all job requests uniformly.
+
 # =============================================================================
 # MC/DC Verification Task Definitions
 # =============================================================================
@@ -19,22 +25,22 @@ one_group_slab:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime_factor: 0.21
+  walltime: 0.21
 
 kornreich:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime_factor: 0.21
+  walltime: 0.21
 
 inf_shem361_subcritical:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime_factor: 0.86
+  walltime: 0.86
 
 inf_shem361_supercritical:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime_factor: 1.00
+  walltime: 1
