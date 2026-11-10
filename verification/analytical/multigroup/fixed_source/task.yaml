@@ -1,8 +1,12 @@
-# Walltime is required for every case/mode job, in hours.
-# Migration basis: previous 0.6-hour base multiplied by each former case/mode factor.
-# Values are provisional carry-forwards; recalibration is pending.
-# Calibration comments should record platform/resources, workload, measured time,
-# and margin. A launch --walltime overrides all job requests uniformly.
+# Walltime calibration: LLNL Dane, 1 full CPU node, 112 MPI ranks, Numba CPU.
+# Source: analytical_multigroup_fixed_source.zip :: maestro_run_20261106-215958/status.csv
+# Jobs submitted 2026-11-06; Run Time excludes queue wait and covers the full case job.
+# Requests [h] = ceil(1.5 * observed Run Time [s] / 36) / 100, rounded upward to 0.01 h.
+# FINISHED rows measure completed sequences. TIMEDOUT/FAILED rows are censored:
+# their buffered times are provisional rerun allowances, not calibrated completion times.
+# Recalibrate those cases after their complete sampling sequences finish.
+# Recalibrate after changes to inputs, sampling, execution mode, resources, or MC/DC.
+# A launch-level walltime overrides these values uniformly; use None to retain them.
 
 # =============================================================================
 # MC/DC Verification Task Definitions
@@ -51,88 +55,115 @@ azurv1:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.27
+  # Job 8475393: TIMEDOUT; Run Time 00:17:04; 1.5x -> 0.43 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.43
 
 azurv1-basic_techniques:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.27
+  # Job 8475392: TIMEDOUT; Run Time 00:17:04; 1.5x -> 0.43 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.43
 
 azurv1-weight_windows:
   logN_min: 4
   logN_max: 6
   N_task: 7
-  walltime: 0.27
+  # Job 8475391: TIMEDOUT; Run Time 00:17:04; 1.5x -> 0.43 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.43
 
 azurv1-census:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.3
+  # Job 8475390: TIMEDOUT; Run Time 00:18:04; 1.5x -> 0.46 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.46
 
 azurv1-census-tally:
   logN_min: 4
   logN_max: 6
   N_task: 7
-  walltime: 0.24
+  # Job 8475389: FAILED; Run Time 00:15:04; 1.5x -> 0.38 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.38
 
 azurv1_sub:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.24
+  # Job 8475388: TIMEDOUT; Run Time 00:15:04; 1.5x -> 0.38 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.38
 
 azurv1_super:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.27
+  # Job 8475387: TIMEDOUT; Run Time 00:18:04; 1.5x -> 0.46 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.46
 
 slab_absorbium:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.27
+  # Job 8475386: TIMEDOUT; Run Time 00:18:04; 1.5x -> 0.46 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.46
 
 slab_isobeam_td:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.27
+  # Job 8475385: TIMEDOUT; Run Time 00:18:04; 1.5x -> 0.46 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.46
 
 inf_shem361:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.33
+  # Job 8475384: TIMEDOUT; Run Time 00:21:05; 1.5x -> 0.53 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.53
 
 inf_shem361-weight_windows:
   logN_min: 3
   logN_max: 5
   N_task: 7
-  walltime: 0.3
+  # Job 8475383: TIMEDOUT; Run Time 00:19:04; 1.5x -> 0.48 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.48
 
 inf_shem361_td:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.42
+  # Job 8475382: FINISHED; Run Time 00:24:05; 1.5x -> 0.61 h.
+  walltime: 0.61
 
 inf_shem361_td-census:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.6
+  # Job 8475381: FINISHED; Run Time 00:33:07; 1.5x -> 0.83 h.
+  walltime: 0.83
 
 reed:
   logN_min: 5
   logN_max: 7
   N_task: 7
-  walltime: 0.27
+  # Job 8475380: TIMEDOUT; Run Time 00:17:04; 1.5x -> 0.43 h.
+  # Runtime is a lower bound; this is a provisional rerun allowance.
+  walltime: 0.43
 
 mms_two_group_slab:
   logN_min: 4
   logN_max: 6
   N_task: 7
-  walltime: 0.3
+  # Job 8475379: FINISHED; Run Time 00:17:04; 1.5x -> 0.43 h.
+  walltime: 0.43

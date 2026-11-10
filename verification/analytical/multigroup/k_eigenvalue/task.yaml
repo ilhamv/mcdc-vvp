@@ -1,8 +1,12 @@
-# Walltime is required for every case/mode job, in hours.
-# Migration basis: previous 1-hour base multiplied by each former case/mode factor.
-# Values are provisional carry-forwards; recalibration is pending.
-# Calibration comments should record platform/resources, workload, measured time,
-# and margin. A launch --walltime overrides all job requests uniformly.
+# Walltime calibration: LLNL Dane, 1 full CPU node,
+# 112 MPI ranks total, Numba CPU execution; jobs submitted 2026-11-04.
+# Source (repository root): status-verification-analytical-multigroup-k_eigenvalue.csv
+# Use Run Time (End Time - Start Time), excluding queue wait; all jobs have zero restarts.
+# Each value covers the full case job and its configured sampling sequence.
+# FINISHED jobs: walltime [h] = ceil(1.5 * Run Time [s] / 36) / 100.
+# This rounds upward to 0.01 h; the scheduler then applies its time resolution.
+# Recalibrate if sampling, physics inputs, execution mode, or resources change.
+# A launch-level walltime overrides these requests uniformly; use None to retain them.
 
 # =============================================================================
 # MC/DC Verification Task Definitions
@@ -25,22 +29,26 @@ one_group_slab:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime: 0.21
+  # Job 8421523: FINISHED; Run Time 00:10:03; 1.5x -> 0.26 h.
+  walltime: 0.26
 
 kornreich:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime: 0.21
+  # Job 8421522: FINISHED; Run Time 00:09:03; 1.5x -> 0.23 h.
+  walltime: 0.23
 
 inf_shem361_subcritical:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime: 0.86
+  # Job 8421521: FINISHED; Run Time 00:40:05; 1.5x -> 1.01 h.
+  walltime: 1.01
 
 inf_shem361_supercritical:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  walltime: 1
+  # Job 8421520: FINISHED; Run Time 00:45:05; 1.5x -> 1.13 h.
+  walltime: 1.13
