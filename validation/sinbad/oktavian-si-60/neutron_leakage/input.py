@@ -286,7 +286,7 @@ def material(name, composition):
     """Create a room-temperature material from atomic number densities."""
     return mcdc.Material(
         name=name,
-        nuclide_composition=composition,
+        number_density=composition,
         temperature=ROOM_TEMPERATURE_K,
     )
 

@@ -1,33 +1,40 @@
-# Walltime calibration: LLNL Dane, 20 full CPU nodes,
-# 2240 MPI ranks total, Numba CPU execution; jobs submitted 2026-11-04.
-# Source (repository root): status-verification-code_to_code-multigroup-fixed_source.csv
-# Use Run Time (End Time - Start Time), excluding queue wait; all jobs have zero restarts.
-# Each value covers the full case job and its configured sampling sequence.
-# FINISHED jobs: walltime [h] = ceil(1.5 * Run Time [s] / 36) / 100.
+# Walltime calibration: LLNL Dane, Numba CPU execution.
+# Latest report: 32 full CPU nodes, 3584 MPI ranks; jobs submitted 2026-11-06.
+# Source: code_to_code_multigroup_fixed_source.zip :: maestro_run_20261106-220004/status.csv
+# Target allocation: 64 full CPU nodes, 7168 MPI ranks.
+# Use Run Time, excluding queue wait, for the full case sampling sequence.
+# Completed jobs: walltime [h] = ceil(1.5 * Run Time [s] / 36) / 100.
 # This rounds upward to 0.01 h; the scheduler then applies its time resolution.
-# Recalibrate if sampling, physics inputs, execution mode, or resources change.
+# Incomplete jobs require the per-case qualifications below.
+# Recalibrate after changes to inputs, sampling, execution mode, resources, or MC/DC.
 # A launch-level walltime overrides these requests uniformly; use None to retain them.
 
 c5g7-4phase:
   logN_min: 5
   logN_max: 7
   N_task: 5
-  # Job 8421526: TIMEDOUT after 24:07:03; completion time unknown.
-  # 1.5x the observed lower bound is 36.18 h, above Dane's 24 h limit.
-  # The 24 h request is the platform limit, not a calibrated 1.5x allowance.
-  # Reduce the workload or obtain a longer-time allocation before recalibrating.
-  walltime: 24
+  # Job 8475402: TIMEDOUT after 24:06:08 on 32 nodes; completion time unknown.
+  # Provisional request for 64 nodes (7168 MPI ranks), assuming ideal strong scaling:
+  # ceil(1.5 * 86768 s * (32 / 64) / 36) / 100 = 18.08 h.
+  # This scales a censored runtime; full completion may require more time.
+  # Recalibrate from a completed 64-node run of the full sampling sequence.
+  walltime: 18.08
 
 kobayashi:
   logN_min: 8
   logN_max: 10
   N_task: 5
-  # Job 8421525: FINISHED; Run Time 02:06:21; 1.5x -> 3.16 h.
+  # Job 8475401: FAILED (out of memory) after 00:06:01 on 32 nodes.
+  # This aborted run cannot calibrate the time needed to complete the case.
+  # Retained calibration: job 8421525, FINISHED; Run Time 02:06:21; 1.5x -> 3.16 h.
+  # Prior run: Dane, 20 full CPU nodes, 2240 MPI ranks, Numba CPU; 2026-11-04.
+  # Retain this allowance for 64 nodes; remeasure after resolving the memory failure.
   walltime: 3.16
 
 kobayashi-detector:
   logN_min: 7
   logN_max: 9
   N_task: 5
-  # Job 8421524: FINISHED; Run Time 02:56:32; 1.5x -> 4.42 h.
-  walltime: 4.42
+  # Job 8475400: FINISHED on 32 nodes; Run Time 01:58:23; 1.5x -> 2.96 h.
+  # Retain this allowance for 64 nodes pending a completed measurement.
+  walltime: 2.96

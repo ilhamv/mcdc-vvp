@@ -311,7 +311,7 @@ simulation = mcdc.Simulation(f"SINBAD FNG/TUD SiC detector {DETECTOR_LABEL}")
 # Number densities are those in the supplied MCNP input, in atoms/(barn cm).
 sic = mcdc.Material(
     name="SiC assembly",
-    nuclide_composition={
+    number_density={
         "C12": 4.89e-2,
         "Si28": 4.67e-2,
         "B10": 2.00e-5,
@@ -326,7 +326,7 @@ sic = mcdc.Material(
 )
 source_air = mcdc.Material(
     name="Source-side air",
-    nuclide_composition={
+    number_density={
         "N14": 4.614e-5 * 0.788903,
         "O16": 4.614e-5 * 0.211097,
     },
@@ -334,17 +334,17 @@ source_air = mcdc.Material(
 )
 detector_clearance_air = mcdc.Material(
     name="Detector-clearance air",
-    nuclide_composition={"N14": 3.969077e-5, "O16": 1.062057e-5},
+    number_density={"N14": 3.969077e-5, "O16": 1.062057e-5},
     temperature=293.6,
 )
 ne213 = mcdc.Material(
     name="NE213 active scintillator",
-    nuclide_composition={"H1": 4.820e-2, "C12": 3.976e-2},
+    number_density={"H1": 4.820e-2, "C12": 3.976e-2},
     temperature=293.6,
 )
 polyethylene = mcdc.Material(
     name="Polyethylene light guide",
-    nuclide_composition={"H1": 8.08e-2, "C12": 4.03e-2},
+    number_density={"H1": 8.08e-2, "C12": 4.03e-2},
     temperature=293.6,
 )
 

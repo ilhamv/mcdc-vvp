@@ -190,7 +190,7 @@ sic_atomic_weights = {
 normalization = sum(sic_mass_fractions.values())
 sic = mcdc.Material(
     name="SiC assembly",
-    nuclide_composition={
+    number_density={
         nuclide: atomic_density(
             3.158, fraction / normalization, sic_atomic_weights[nuclide]
         )
@@ -201,7 +201,7 @@ sic = mcdc.Material(
 lif_molecules = AVOGADRO_BARN_CM * 2.64 / (6.941 + 18.9984)
 lif = mcdc.Material(
     name="GR-200 LiF dosimeter",
-    nuclide_composition={
+    number_density={
         "Li6": lif_molecules * 0.0759,
         "Li7": lif_molecules * 0.9241,
         "F19": lif_molecules,
@@ -210,12 +210,12 @@ lif = mcdc.Material(
 )
 polyethylene = mcdc.Material(
     name="Polyethylene TLD holder",
-    nuclide_composition={"H1": 8.08e-2, "C12": 4.03e-2},
+    number_density={"H1": 8.08e-2, "C12": 4.03e-2},
     temperature=293.6,
 )
 copper = mcdc.Material(
     name="Copper target backing",
-    nuclide_composition={
+    number_density={
         "Cu63": atomic_density(8.94, 0.69, 62.9296),
         "Cu65": atomic_density(8.94, 0.31, 64.9278),
     },
@@ -223,7 +223,7 @@ copper = mcdc.Material(
 )
 water = mcdc.Material(
     name="Target cooling water",
-    element_composition={
+    number_density={
         "H": atomic_density(1.0, 0.1119, 1.008),
         "O": atomic_density(1.0, 0.8881, 15.999),
     },
@@ -231,7 +231,7 @@ water = mcdc.Material(
 )
 steel = mcdc.Material(
     name="Target stainless steel",
-    element_composition={
+    number_density={
         "Fe": atomic_density(7.954, 0.695, 55.845),
         "Cr": atomic_density(7.954, 0.152, 51.996),
         "Ni": atomic_density(7.954, 0.107, 58.693),

@@ -51,31 +51,31 @@ simulation = mcdc.Simulation(f"SINBAD RFNC {sample_name}")
 h2o_molecules = molecular_number_density(sample_density["h2o"], 18.0153)
 h2o = mcdc.Material(
     name="H2O sample",
-    element_composition={"H": 2.0 * h2o_molecules, "O": h2o_molecules},
+    number_density={"H": 2.0 * h2o_molecules, "O": h2o_molecules},
     temperature=293.6,
 )
 sio2_molecules = molecular_number_density(sample_density["sio2"], 60.0843)
 sio2 = mcdc.Material(
     name="SiO2 sample",
-    element_composition={"Si": sio2_molecules, "O": 2.0 * sio2_molecules},
+    number_density={"Si": sio2_molecules, "O": 2.0 * sio2_molecules},
     temperature=293.6,
 )
 nacl_molecules = molecular_number_density(sample_density["nacl"], 58.4428)
 nacl = mcdc.Material(
     name="NaCl sample",
-    element_composition={"Na": nacl_molecules, "Cl": nacl_molecules},
+    number_density={"Na": nacl_molecules, "Cl": nacl_molecules},
     temperature=293.6,
 )
 sample_material = {"h2o": h2o, "sio2": sio2, "nacl": nacl}[sample_name.split("-")[0]]
 
 copper = mcdc.Material(
     name="Copper target and container",
-    element_composition={"Cu": molecular_number_density(8.94, 63.546)},
+    number_density={"Cu": molecular_number_density(8.94, 63.546)},
     temperature=293.6,
 )
 water = mcdc.Material(
     name="Target cooling water",
-    element_composition={
+    number_density={
         "H": 2.0 * molecular_number_density(1.0, 18.0153),
         "O": molecular_number_density(1.0, 18.0153),
     },
@@ -83,13 +83,13 @@ water = mcdc.Material(
 )
 steel = mcdc.Material(
     name="Steel target shell and delay rod",
-    element_composition={"Fe": molecular_number_density(7.8, 55.845)},
+    number_density={"Fe": molecular_number_density(7.8, 55.845)},
     temperature=293.6,
 )
 stilbene_molecules = molecular_number_density(1.16, 180.25)
 stilbene = mcdc.Material(
     name="Stilbene detector",
-    element_composition={
+    number_density={
         "C": 14.0 * stilbene_molecules,
         "H": 12.0 * stilbene_molecules,
     },
@@ -189,11 +189,6 @@ simulation.set_sources(
     ]
 )
 
-# The benchmark observable is the neutron-induced photon spectrum at the
-# remote stilbene detector. Defining a neutron-only diagnostic here would not
-# represent that measured quantity, so stop explicitly until the required
-# coupled physics and photon tally are available.
 raise NotImplementedError(
-    "The RFNC photon-spectrum case requires neutron-induced photon production, "
-    "photon transport, and a photon tally, which MC/DC does not yet provide."
+    "The RFNC photon-spectrum case requires neutron-induced photon production."
 )

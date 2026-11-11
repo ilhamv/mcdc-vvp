@@ -156,7 +156,7 @@ def material(name, composition):
     """Create a room-temperature material from atomic number densities."""
     return mcdc.Material(
         name=name,
-        nuclide_composition=composition,
+        number_density=composition,
         temperature=ROOM_TEMPERATURE_K,
     )
 
@@ -649,14 +649,6 @@ simulation.set_sources([source])
 # Set tallies, settings, and run MC/DC
 # ======================================================================================
 
-# The benchmark observable is the neutron-induced photon spectrum in the NaI
-# detector.  MC/DC does not yet support coupled neutron-photon production and
-# photon transport, so defining a neutron tally here would not represent the
-# measured quantity.  Keep the complete experiment-specific geometry and
-# neutron source above ready for the photon-transport implementation, but stop
-# explicitly instead of producing a misleading validation result.
 raise NotImplementedError(
-    "The OKTAVIAN gamma-leakage case requires neutron-induced photon "
-    "production, photon transport, and a photon tally, which MC/DC does not "
-    "yet provide."
+    "The OKTAVIAN gamma-leakage case requires neutron-induced photon production."
 )
