@@ -1,3 +1,7 @@
+"""
+User account, queue, reservation, and Python interpreter settings for each compute platform.
+"""
+
 USER_CONFIG = {
     "your_machine_here": {
         "account": "your_account_here",

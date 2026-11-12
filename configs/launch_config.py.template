@@ -1,3 +1,7 @@
+"""
+Suite selection and optional task overrides for MC/DC VVP campaigns.
+"""
+
 LAUNCH_CONFIG = {
     "verification/analytical/multigroup/fixed_source": {
         "enabled": False,
