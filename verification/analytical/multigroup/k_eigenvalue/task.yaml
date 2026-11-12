@@ -31,7 +31,6 @@ one_group_slab:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  # Job 8475398: FINISHED; Run Time 00:13:02; 1.5x -> 0.33 h.
   walltime: 0.33
 
 kornreich:
@@ -40,8 +39,6 @@ kornreich:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  # Job 8475397: TIMEDOUT; Run Time 00:13:02; 1.5x -> 0.33 h.
-  # Runtime is a lower bound; this is a provisional rerun allowance.
   walltime: 0.33
 
 inf_shem361_subcritical:
@@ -50,7 +47,6 @@ inf_shem361_subcritical:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  # Job 8475396: FINISHED; Run Time 00:43:05; 1.5x -> 1.08 h.
   walltime: 1.08
 
 inf_shem361_supercritical:
@@ -59,5 +55,4 @@ inf_shem361_supercritical:
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
-  # Job 8475395: FINISHED; Run Time 00:45:05; 1.5x -> 1.13 h.
   walltime: 1.13
