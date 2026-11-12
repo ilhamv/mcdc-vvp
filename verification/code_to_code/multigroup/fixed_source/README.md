@@ -22,13 +22,13 @@ The `kobayashi-detector` downloader still points to a baseline archive placehold
 Run commands from this suite directory. Choose local execution:
 
 ```bash
-python launch.py
+python launch.py --platform local --platforms local
 ```
 
 Or launch on the configured HPC platform:
 
 ```bash
-python launch.py --platform tuolumne --N_node 1 --walltime 1.0
+python launch.py --platform dane
 ```
 
 `N_node` sets nodes per case, using the configured CPU cores on each node. Required `walltime` in `task.yaml` specifies hours for the entire case job. `--walltime` overrides all job durations uniformly; requests are rounded up and capped at the platform limit. Local execution ignores the limit but still requires a valid task value.

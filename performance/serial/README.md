@@ -10,11 +10,15 @@ Each `task.yaml` case has a `numba` block, a `python` block, or both:
 ```yaml
 kobayashi-detector:
   numba:
+    platforms: [local, dane]
+    N_node: 1
     logN_min: 1
     logN_max: 6
     N_task: 11
     walltime: 24.0
   python:
+    platforms: [local, dane]
+    N_node: 1
     logN_min: 1
     logN_max: 4
     N_task: 7

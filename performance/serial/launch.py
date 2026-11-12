@@ -21,7 +21,7 @@ if str(REPO_DIR) not in sys.path:
 # ======================================================================================
 
 from configs.platform_config import PLATFORMS
-from configs.util import get_case_walltime, get_task_walltime
+from configs.util import get_case_walltime, get_task_walltime, select_tasks
 from util import case_outputs_complete, task_modes
 
 try:
@@ -44,6 +44,8 @@ parser.add_argument(
     default=None,
     help="Override every case-mode job walltime uniformly, in hours.",
 )
+parser.add_argument("--platforms", nargs="+", help="Override task platform lists.")
+parser.add_argument("--N_node", type=int, choices=[1], default=None)
 args = parser.parse_args()
 
 
@@ -55,6 +57,13 @@ suite_dir = Path(__file__).resolve().parent
 task_file = suite_dir / "task.yaml"
 run_case = suite_dir / "run_case.py"
 study_file = suite_dir / f"study_{args.platform}.yaml"
+with task_file.open() as stream:
+    config = yaml.safe_load(stream)
+tasks = select_tasks(config, suite_dir, args.platform, args.platforms, args.N_node)
+if not tasks:
+    print(f"No tasks configured for {args.platform}.")
+    raise SystemExit(0)
+
 local = args.platform == "local"
 user_platform_config = USER_CONFIG.get(args.platform, {})
 
@@ -79,8 +88,6 @@ if not local:
 # Load tasks
 # ======================================================================================
 
-with task_file.open("r") as stream:
-    tasks = yaml.safe_load(stream)
 
 for case_name, task in tasks.items():
     for mode in task_modes(task):
@@ -205,10 +212,8 @@ launch_config = {
 }
 with (latest_run / "launch_config.yaml").open("w") as stream:
     yaml.dump(launch_config, stream, sort_keys=False)
-with task_file.open("r") as stream:
-    task_config = yaml.safe_load(stream)
 with (latest_run / "task.yaml").open("w") as stream:
-    yaml.dump(task_config, stream, sort_keys=False)
+    yaml.dump(tasks, stream, sort_keys=False)
 
 # ======================================================================================
 # Summary

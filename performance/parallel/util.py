@@ -84,8 +84,11 @@ def performance_tasks(config, N_node_max=128, platform="dane"):
         N_particle_base = _positive_integer(
             baseline, f"{case_name} baseline particle count"
         )
+        case_limit = settings.get("N_node", N_node_max)
+        if case_limit not in NODE_COUNTS:
+            raise ValueError(f"{case_name}: N_node must be one of {NODE_COUNTS}.")
         for N_node in NODE_COUNTS:
-            if N_node > N_node_max:
+            if N_node > min(case_limit, N_node_max):
                 continue
             for multiplier in WORKLOAD_MULTIPLIERS:
                 task = performance_task(

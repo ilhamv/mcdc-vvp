@@ -3,6 +3,8 @@
 import math
 from pathlib import Path
 
+from configs.platform_config import PLATFORMS
+
 
 def case_outputs_complete(case_dir, sample_counts):
     """Return whether every expected sample output exists for a case."""
@@ -55,3 +57,61 @@ def get_case_walltime(task, platform, walltime_override=None):
         minutes=minutes,
         seconds=seconds,
     )
+
+
+def platform_list(value):
+    if not isinstance(value, list) or any(
+        not isinstance(name, str) or name not in {"local", *PLATFORMS} for name in value
+    ):
+        raise ValueError(f"Invalid platforms list: {value!r}")
+    return value
+
+
+def select_tasks(config, suite_dir, platform, platforms=None, N_node=None):
+    """Return the selected task mapping, with effective resources for the run."""
+    override = [] if platforms is None else platform_list(platforms)
+    default_nodes = 128 if suite_dir.name == "parallel" else 1
+    nested = suite_dir.name in {"sinbad", "serial"}
+    selected = {}
+    for case, settings in config.items():
+        for mode, task in (settings.items() if nested else [(None, settings)]):
+            if "walltime" not in task:
+                raise ValueError(f"{case}: each task must define walltime.")
+            defaults = platform_list(task.get("platforms", [platform]))
+            targets = override or defaults
+            if platform not in targets:
+                continue
+            nodes = task.get("N_node", default_nodes) if N_node is None else N_node
+            if type(nodes) is not int or nodes < 1:
+                raise ValueError(f"{case}: N_node must be a positive integer.")
+            if platform == "local" and N_node is None:
+                nodes = 1
+            limit = (
+                1
+                if platform == "local" or suite_dir.name == "serial"
+                else PLATFORMS[platform]["max_nodes"]
+            )
+            if nodes > limit:
+                raise ValueError(
+                    f"{case}: N_node={nodes} exceeds the {limit}-node limit."
+                )
+            effective = {**task, "platforms": targets, "N_node": nodes}
+            if nested:
+                selected.setdefault(case, {})[mode] = effective
+            else:
+                selected[case] = effective
+    return selected
+
+
+def allocation_metadata(case_nodes, ranks_per_node):
+    """Record scheduled case allocations and suite totals when uniform."""
+    counts = set(case_nodes.values())
+    uniform = counts.pop() if len(counts) == 1 else None
+    return {
+        "case_nodes": case_nodes,
+        "case_processes": {
+            case: nodes * ranks_per_node for case, nodes in case_nodes.items()
+        },
+        "N_node": uniform,
+        "N_process": uniform * ranks_per_node if uniform else None,
+    }

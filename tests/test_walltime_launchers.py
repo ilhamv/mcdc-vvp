@@ -75,6 +75,66 @@ class LauncherWalltimeTests(unittest.TestCase):
             timeout=60,
         )
 
+    def test_root_platform_and_node_overrides(self):
+        suite = SUITES[0]
+        directory = self.root / suite
+        task_file = directory / "task.yaml"
+        original = yaml.safe_load(task_file.read_text())
+        allocations = {
+            "azurv1": (["dane"], 2),
+            "reed": (["dane"], 4),
+            "slab_absorbium": (["tuolumne"], 1),
+        }
+        tasks = {
+            name: {**original[name], "platforms": platforms, "N_node": nodes}
+            for name, (platforms, nodes) in allocations.items()
+        }
+        task_file.write_text(yaml.safe_dump(tasks))
+
+        # Intercept the external scheduler at the executable boundary so that
+        # the root launcher, child launcher and their argument parsing all run.
+        executable = Path(self.directory.name) / "maestro"
+        executable.write_text("#!/bin/sh\nmkdir -p maestro_run_fixture\n")
+        executable.chmod(0o755)
+        env = dict(
+            os.environ,
+            PATH=f"{executable.parent}{os.pathsep}{os.environ['PATH']}",
+            PYTHONDONTWRITEBYTECODE="1",
+        )
+        for platforms, nodes, expected in [
+            ([], None, {"azurv1": 2, "reed": 4}),
+            (["dane"], None, {"azurv1": 2, "reed": 4, "slab_absorbium": 1}),
+            (None, 3, {"azurv1": 3, "reed": 3}),
+            (["dane"], 3, {"azurv1": 3, "reed": 3, "slab_absorbium": 3}),
+        ]:
+            with self.subTest(platforms=platforms, nodes=nodes):
+                options = {"enabled": True, "platforms": platforms, "N_node": nodes}
+                config = {suite: options}
+                (self.root / "configs/launch_config.py").write_text(
+                    f"LAUNCH_CONFIG = {config!r}\n"
+                )
+                result = subprocess.run(
+                    [sys.executable, "launch.py", "--platform", "dane"],
+                    cwd=self.root,
+                    env=env,
+                    capture_output=True,
+                    text=True,
+                    timeout=60,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                steps = yaml.safe_load((directory / "study.yaml").read_text())["study"]
+                self.assertEqual(
+                    {s["name"]: s["run"]["nodes"] for s in steps}, expected
+                )
+                self.assertEqual(
+                    {s["name"]: s["run"]["procs"] for s in steps},
+                    {name: count * 112 for name, count in expected.items()},
+                )
+                snapshot = yaml.safe_load(
+                    (directory / "maestro_run_fixture/task.yaml").read_text()
+                )
+                self.assertEqual(set(snapshot), set(expected))
+
     def test_uniform_override_in_every_suite(self):
         for suite in SUITES:
             with self.subTest(suite=suite):

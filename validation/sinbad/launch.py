@@ -23,7 +23,12 @@ if str(REPO_DIR) not in sys.path:
 # ======================================================================================
 
 from configs.platform_config import PLATFORMS
-from configs.util import get_case_walltime, get_task_walltime
+from configs.util import (
+    allocation_metadata,
+    get_case_walltime,
+    get_task_walltime,
+    select_tasks,
+)
 from util import case_directory, load_tasks, output_file
 
 try:
@@ -38,20 +43,15 @@ except ImportError:
 
 parser = argparse.ArgumentParser(description="Launch the MC/DC VVP SINBAD suite.")
 parser.add_argument("--platform", default="local", choices=["local"] + list(PLATFORMS))
-parser.add_argument("--N_node", type=int, default=1, help="Set the number of nodes.")
+parser.add_argument("--N_node", type=int, default=None, help="Set the number of nodes.")
 parser.add_argument(
     "--walltime",
     type=float,
     default=None,
     help="Override every case job walltime uniformly, in hours.",
 )
+parser.add_argument("--platforms", nargs="+", help="Override task platform lists.")
 args = parser.parse_args()
-
-if args.N_node < 1:
-    parser.error("--N_node must be at least one.")
-if args.platform == "local" and args.N_node != 1:
-    parser.error("Local execution supports only --N_node 1.")
-
 
 # ======================================================================================
 # Paths and tasks
@@ -62,7 +62,19 @@ task_file = suite_dir / "task.yaml"
 run_case = suite_dir / "run_case.py"
 study_file = suite_dir / "study.yaml"
 
-task_config, tasks = load_tasks(task_file)
+config, _ = load_tasks(task_file)
+task_config = select_tasks(
+    config, suite_dir, args.platform, args.platforms, args.N_node
+)
+if not task_config:
+    print(f"No tasks configured for {args.platform}.")
+    raise SystemExit(0)
+tasks = [
+    (benchmark, case, task)
+    for benchmark, cases in task_config.items()
+    for case, task in cases.items()
+]
+
 
 for benchmark, case, task in tasks:
     get_task_walltime(task, args.walltime)
@@ -86,12 +98,6 @@ if not local:
     scheduler = platform["scheduler"]
     cpu_cores = platform["cpu_cores_per_node"]
 
-    if args.N_node > platform["max_nodes"]:
-        parser.error(
-            f"--N_node exceeds the {platform['max_nodes']}-node limit for "
-            f"{args.platform}."
-        )
-
     account = user_platform_config.get("account")
     queue = user_platform_config.get("queue")
     reservation = user_platform_config.get("reservation")
@@ -109,11 +115,13 @@ if not local:
 
 steps = []
 case_walltimes = {}
+case_nodes = {}
 skipped_cases = []
 
 for benchmark, case, task in tasks:
     name = f"{benchmark}/{case}"
     case_dir = case_directory(suite_dir, benchmark, case)
+    nodes = task["N_node"]
     input_file = case_dir / "input.py"
     N_particle = task["N_particle"]
 
@@ -130,15 +138,16 @@ for benchmark, case, task in tasks:
     if not local:
         command += ' --launcher "$(LAUNCHER)"'
 
+    case_nodes[name] = nodes
     run = {"cmd": command}
     if not local:
         walltime = get_case_walltime(task, platform, args.walltime)
         case_walltimes[name] = walltime
         run.update(
             {
-                "nodes": args.N_node,
+                "nodes": nodes,
                 "walltime": walltime,
-                "procs": args.N_node * cpu_cores,
+                "procs": nodes * cpu_cores,
                 "exclusive": True,
             }
         )
@@ -213,8 +222,7 @@ latest_run = maestro_runs[-1]
 launch_config = {
     "platform": args.platform,
     "scheduler": "local" if local else scheduler,
-    "N_node": args.N_node,
-    "N_process": 1 if local else args.N_node * cpu_cores,
+    **allocation_metadata(case_nodes, 1 if local else cpu_cores),
     "walltime": args.walltime,
     "case_walltimes": case_walltimes,
     "mcdc_python": mcdc_python,
@@ -231,7 +239,7 @@ with (latest_run / "task.yaml").open("w") as file:
 # ======================================================================================
 
 print(f"Platform : {args.platform}")
-print(f"Nodes    : {args.N_node}")
+print(f"Nodes    : {launch_config['N_node'] or case_nodes}")
 print(f"Python   : {mcdc_python}")
 print(f"Study    : {study_file}")
 if not local:
@@ -242,6 +250,6 @@ if not local:
     print("Walltimes:")
     for name, walltime in case_walltimes.items():
         print(f"  {name}: {walltime}")
-    print(f"Procs    : {args.N_node * cpu_cores}")
+
 print(f"Cases    : {len(steps)}")
 print(f"Skipped  : {len(skipped_cases)}")

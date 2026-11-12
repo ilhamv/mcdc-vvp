@@ -10,6 +10,8 @@
 # A launch-level walltime overrides these requests uniformly; use None to retain them.
 
 c5g7-4phase:
+  platforms: [dane]
+  N_node: 64
   logN_min: 5
   logN_max: 7
   N_task: 5
@@ -21,6 +23,8 @@ c5g7-4phase:
   walltime: 18.08
 
 kobayashi:
+  platforms: [dane]
+  N_node: 64
   logN_min: 8
   logN_max: 10
   N_task: 5
@@ -32,6 +36,8 @@ kobayashi:
   walltime: 3.16
 
 kobayashi-detector:
+  platforms: [dane]
+  N_node: 64
   logN_min: 7
   logN_max: 9
   N_task: 5

@@ -26,6 +26,8 @@
 # =============================================================================
 
 one_group_slab:
+  platforms: [local, dane]
+  N_node: 1
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
@@ -33,6 +35,8 @@ one_group_slab:
   walltime: 0.33
 
 kornreich:
+  platforms: [local, dane]
+  N_node: 1
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
@@ -41,6 +45,8 @@ kornreich:
   walltime: 0.33
 
 inf_shem361_subcritical:
+  platforms: [local, dane]
+  N_node: 1
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
@@ -48,6 +54,8 @@ inf_shem361_subcritical:
   walltime: 1.08
 
 inf_shem361_supercritical:
+  platforms: [local, dane]
+  N_node: 1
   N_active_min: 20
   N_active_max: 2000
   N_task: 5

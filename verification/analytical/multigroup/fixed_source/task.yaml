@@ -52,6 +52,8 @@
 # =============================================================================
 
 azurv1:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -60,6 +62,8 @@ azurv1:
   walltime: 0.43
 
 azurv1-basic_techniques:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -68,6 +72,8 @@ azurv1-basic_techniques:
   walltime: 0.43
 
 azurv1-weight_windows:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 4
   logN_max: 6
   N_task: 7
@@ -76,6 +82,8 @@ azurv1-weight_windows:
   walltime: 0.43
 
 azurv1-census:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -84,6 +92,8 @@ azurv1-census:
   walltime: 0.46
 
 azurv1-census-tally:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 4
   logN_max: 6
   N_task: 7
@@ -92,6 +102,8 @@ azurv1-census-tally:
   walltime: 0.38
 
 azurv1_sub:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -100,6 +112,8 @@ azurv1_sub:
   walltime: 0.38
 
 azurv1_super:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -108,6 +122,8 @@ azurv1_super:
   walltime: 0.46
 
 slab_absorbium:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -116,6 +132,8 @@ slab_absorbium:
   walltime: 0.46
 
 slab_isobeam_td:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -124,6 +142,8 @@ slab_isobeam_td:
   walltime: 0.46
 
 inf_shem361:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -132,6 +152,8 @@ inf_shem361:
   walltime: 0.53
 
 inf_shem361-weight_windows:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 3
   logN_max: 5
   N_task: 7
@@ -140,6 +162,8 @@ inf_shem361-weight_windows:
   walltime: 0.48
 
 inf_shem361_td:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -147,6 +171,8 @@ inf_shem361_td:
   walltime: 0.61
 
 inf_shem361_td-census:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -154,6 +180,8 @@ inf_shem361_td-census:
   walltime: 0.83
 
 reed:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
@@ -162,6 +190,8 @@ reed:
   walltime: 0.43
 
 mms_two_group_slab:
+  platforms: [local, dane]
+  N_node: 1
   logN_min: 4
   logN_max: 6
   N_task: 7

@@ -3,6 +3,8 @@
 import argparse
 import subprocess
 import sys
+
+import yaml
 from pathlib import Path
 
 # ======================================================================================
@@ -21,6 +23,7 @@ if str(REPO_DIR) not in sys.path:
 # ======================================================================================
 
 from configs.launch_config import LAUNCH_CONFIG
+from configs.util import select_tasks
 
 # ======================================================================================
 # Command-line arguments
@@ -36,24 +39,20 @@ args = parser.parse_args()
 
 active_platform = args.platform
 
+selected_suites = {}
 for suite, options in LAUNCH_CONFIG.items():
-    platforms = options.get("platforms")
-    if (
-        not isinstance(platforms, list)
-        or not platforms
-        or not all(isinstance(platform, str) and platform for platform in platforms)
+    if not options.get("enabled", False):
+        continue
+    suite_dir = REPO_DIR / suite
+    with (suite_dir / "task.yaml").open() as stream:
+        config = yaml.safe_load(stream)
+    nodes = options.get("N_node")
+    if nodes is None:
+        nodes = options.get("N_node_max")
+    if select_tasks(
+        config, suite_dir, active_platform, options.get("platforms"), nodes
     ):
-        parser.error(
-            f"Suite '{suite}' must define 'platforms' as a nonempty list of "
-            "platform names in configs/launch_config.py."
-        )
-
-# Select only suites assigned to this launch invocation.
-selected_suites = {
-    suite: options
-    for suite, options in LAUNCH_CONFIG.items()
-    if options.get("enabled", False) and active_platform in options["platforms"]
-}
+        selected_suites[suite] = options
 if not selected_suites:
     parser.error(f"No enabled suites are configured for platform '{active_platform}'.")
 
@@ -78,13 +77,16 @@ for suite, options in selected_suites.items():
     # Forward only options that are meaningful for the configured suite.
     command.extend(["--platform", active_platform])
 
+    if options.get("platforms"):
+        command.extend(["--platforms", *options["platforms"]])
+
     if options.get("N_node") is not None:
         command.extend(["--N_node", str(options["N_node"])])
 
     if options.get("walltime") is not None:
         command.extend(["--walltime", str(options["walltime"])])
 
-    if options.get("N_node_max") is not None:
+    if options.get("N_node") is None and options.get("N_node_max") is not None:
         command.extend(["--N_node_max", str(options["N_node_max"])])
 
     print("=" * 80)

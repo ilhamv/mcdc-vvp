@@ -14,8 +14,8 @@ For a small fixed-source demonstration, set `configs/launch_config.py` to:
 LAUNCH_CONFIG = {
     "verification/analytical/multigroup/fixed_source": {
         "enabled": True,
-        "platforms": ["local"],
-        "N_node": 1,
+        "platforms": [],
+        "N_node": None,
     },
 }
 ```
@@ -24,11 +24,15 @@ Set `verification/analytical/multigroup/fixed_source/task.yaml` to:
 
 ```yaml
 slab_absorbium:
+  platforms: [local]
+  N_node: 1
   logN_min: 3
   logN_max: 4
   N_task: 3
   walltime: 0.1  # Illustrative hours; ignored for local execution.
 ```
+
+Each task specifies its platforms and node count. A nonempty platform list or an explicit node count in the top-level configuration overrides that setting for the suite. Local and serial jobs use one node. For parallel performance, the node count sets the upper limit of the scaling study.
 
 Launch the three sampling tasks:
 

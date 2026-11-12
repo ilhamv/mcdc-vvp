@@ -24,7 +24,13 @@ if str(REPO_DIR) not in sys.path:
 # ======================================================================================
 
 from configs.platform_config import PLATFORMS
-from configs.util import case_outputs_complete, get_case_walltime, get_task_walltime
+from configs.util import (
+    allocation_metadata,
+    case_outputs_complete,
+    get_case_walltime,
+    get_task_walltime,
+    select_tasks,
+)
 from util import particle_counts
 
 # User overrides are optional for local runs.
@@ -45,7 +51,7 @@ parser.add_argument("--platform", default="local", choices=["local"] + list(PLAT
 parser.add_argument(
     "--N_node",
     type=int,
-    default=1,
+    default=None,
     help="Set the number of compute nodes.",
 )
 parser.add_argument(
@@ -54,14 +60,8 @@ parser.add_argument(
     default=None,
     help="Override every case job walltime uniformly, in hours.",
 )
+parser.add_argument("--platforms", nargs="+", help="Override task platform lists.")
 args = parser.parse_args()
-
-if args.N_node < 1:
-    parser.error("--N_node must be at least one.")
-
-if args.platform == "local" and args.N_node != 1:
-    parser.error("Local execution supports only --N_node 1.")
-
 
 # ======================================================================================
 # Paths
@@ -76,6 +76,13 @@ study_file = suite_dir / "study.yaml"
 # ======================================================================================
 # Platform settings
 # ======================================================================================
+
+with task_file.open() as stream:
+    config = yaml.safe_load(stream)
+tasks = select_tasks(config, suite_dir, args.platform, args.platforms, args.N_node)
+if not tasks:
+    print(f"No tasks configured for {args.platform}.")
+    raise SystemExit(0)
 
 local = args.platform == "local"
 user_platform_config = USER_CONFIG.get(args.platform, {})
@@ -93,12 +100,6 @@ if not local:
     scheduler = platform["scheduler"]
     cpu_cores = platform["cpu_cores_per_node"]
 
-    if args.N_node > platform["max_nodes"]:
-        parser.error(
-            f"--N_node exceeds the {platform['max_nodes']}-node limit for "
-            f"{args.platform}."
-        )
-
     account = user_platform_config.get("account")
     queue = user_platform_config.get("queue")
     reservation = user_platform_config.get("reservation")
@@ -114,8 +115,6 @@ if not local:
 # Load tasks
 # ======================================================================================
 
-with task_file.open("r") as f:
-    tasks = yaml.safe_load(f)
 
 for case_name, task in tasks.items():
     get_task_walltime(task, args.walltime)
@@ -128,9 +127,11 @@ for case_name, task in tasks.items():
 # Convert each configured case into one independent Maestro step.
 steps = []
 case_walltimes = {}
+case_nodes = {}
 skipped_cases = []
 
 for case_name, task in tasks.items():
+    nodes = task["N_node"]
     case_dir = suite_dir / "cases" / case_name
     counts = particle_counts(task["logN_min"], task["logN_max"], task["N_task"])
 
@@ -149,15 +150,16 @@ for case_name, task in tasks.items():
     if not local:
         command += ' --launcher "$(LAUNCHER)"'
 
+    case_nodes[case_name] = nodes
     run = {"cmd": command}
 
     # Scheduled studies require explicit resources; local studies run directly.
     if not local:
-        run["nodes"] = args.N_node
+        run["nodes"] = nodes
         walltime = get_case_walltime(task, platform, args.walltime)
         run["walltime"] = walltime
         case_walltimes[case_name] = walltime
-        run["procs"] = args.N_node * cpu_cores
+        run["procs"] = nodes * cpu_cores
         run["exclusive"] = True
 
     steps.append(
@@ -258,8 +260,7 @@ latest_run = maestro_runs[-1]
 launch_config = {
     "platform": args.platform,
     "scheduler": "local" if local else scheduler,
-    "N_node": args.N_node,
-    "N_process": 1 if local else args.N_node * cpu_cores,
+    **allocation_metadata(case_nodes, 1 if local else cpu_cores),
     "walltime": args.walltime,
     "case_walltimes": case_walltimes,
     "mcdc_python": mcdc_python,
@@ -269,11 +270,9 @@ launch_config = {
 with (latest_run / "launch_config.yaml").open("w") as f:
     yaml.dump(launch_config, f, sort_keys=False)
 
-with task_file.open("r") as f:
-    task_config = yaml.safe_load(f)
 
 with (latest_run / "task.yaml").open("w") as f:
-    yaml.dump(task_config, f, sort_keys=False)
+    yaml.dump(tasks, f, sort_keys=False)
 
 
 # ======================================================================================
@@ -281,7 +280,7 @@ with (latest_run / "task.yaml").open("w") as f:
 # ======================================================================================
 
 print(f"Platform : {args.platform}")
-print(f"Nodes    : {args.N_node}")
+print(f"Nodes    : {launch_config['N_node'] or case_nodes}")
 print(f"Python   : {mcdc_python}")
 print(f"Study    : {study_file}")
 
@@ -293,7 +292,7 @@ if not local:
     print("Walltimes:")
     for case_name, walltime in case_walltimes.items():
         print(f"  {case_name}: {walltime}")
-    print(f"Procs    : {args.N_node * cpu_cores}")
+
 
 print(f"Cases    : {len(steps)}")
 print(f"Skipped  : {len(skipped_cases)}")

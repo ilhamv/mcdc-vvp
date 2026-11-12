@@ -22,7 +22,7 @@ if str(REPO_DIR) not in sys.path:
 # ======================================================================================
 
 from configs.platform_config import PLATFORMS
-from configs.util import get_case_walltime, get_task_walltime
+from configs.util import get_case_walltime, get_task_walltime, select_tasks
 from util import (
     NODE_COUNTS,
     case_directory,
@@ -47,9 +47,10 @@ parser = argparse.ArgumentParser(
 parser.add_argument("--platform", choices=PLATFORMS, default="dane")
 parser.add_argument(
     "--N_node_max",
+    "--N_node",
     type=int,
     choices=NODE_COUNTS,
-    default=128,
+    default=None,
     help="Largest power-of-two node count to include.",
 )
 parser.add_argument(
@@ -63,6 +64,7 @@ parser.add_argument(
     default=None,
     help="Override every matrix job walltime uniformly, in hours.",
 )
+parser.add_argument("--platforms", nargs="+", help="Override task platform lists.")
 args = parser.parse_args()
 
 
@@ -74,15 +76,18 @@ suite_dir = Path(__file__).resolve().parent
 task_file = suite_dir / "task.yaml"
 run_case = suite_dir / "run_case.py"
 study_file = suite_dir / f"study_{args.platform}.yaml"
+with task_file.open() as stream:
+    config = yaml.safe_load(stream)
+task_config = select_tasks(
+    config, suite_dir, args.platform, args.platforms, args.N_node_max
+)
+if not task_config:
+    print(f"No tasks configured for {args.platform}.")
+    raise SystemExit(0)
+
 platform = PLATFORMS[args.platform]
 resources = platform_resources(args.platform)
 user_platform_config = USER_CONFIG.get(args.platform, {})
-
-if args.N_node_max > platform["max_nodes"]:
-    parser.error(
-        f"--N_node_max exceeds the {platform['max_nodes']}-node limit for "
-        f"{args.platform}."
-    )
 
 mcdc_python = user_platform_config.get("mcdc_python")
 if mcdc_python is None:
@@ -103,8 +108,7 @@ if account is None:
 # Load tasks
 # ======================================================================================
 
-with task_file.open("r") as stream:
-    task_config = yaml.safe_load(stream)
+args.N_node_max = max(settings["N_node"] for settings in task_config.values())
 tasks = performance_tasks(task_config, args.N_node_max, args.platform)
 for task in tasks:
     get_task_walltime(task, args.walltime)

@@ -13,10 +13,14 @@ Configure `task.yaml` as a benchmark/case mapping:
 ```yaml
 oktavian-si-60:
   neutron_leakage:
+    platforms: [local, dane]
+    N_node: 10
     N_particle: 1_000_000_000
     walltime: 8.16
 fng-tud-sic:
   p1:
+    platforms: [local, dane]
+    N_node: 10
     N_particle: 1_000_000_000
     walltime: 0.24
 ```

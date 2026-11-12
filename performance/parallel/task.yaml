@@ -1,4 +1,6 @@
 kobayashi-detector:
+  platforms: [dane, tuolumne]
+  N_node: 128
   method: Analog
   N_particle_base: 30_000_000
   # Explicit hours per workload multiplier, shared across node counts.

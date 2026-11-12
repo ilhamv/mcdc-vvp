@@ -9,6 +9,8 @@ Select cases in `task.yaml` using `N_active_min`, `N_active_max`, `N_task`, and 
 
 ```yaml
 one_group_slab:
+  platforms: [local, dane]
+  N_node: 1
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
@@ -28,7 +30,7 @@ python launch.py
 Or launch on the configured HPC platform:
 
 ```bash
-python launch.py --platform tuolumne --N_node 1 --walltime 1.0
+python launch.py --platform dane
 ```
 
 `N_node` sets nodes per case, using the configured CPU cores on each node. Required `walltime` in `task.yaml` specifies hours for the entire case job. `--walltime` overrides all job durations uniformly; requests are rounded up and capped at the platform limit. Local execution ignores the limit but still requires a valid task value.
