@@ -20,7 +20,7 @@ if str(REPO_DIR) not in sys.path:
 # Load suite configuration
 # ======================================================================================
 
-from configs.launch_config import LAUNCH_CONFIG
+from configs.util import get_launch_config, get_sinbad_root
 
 # ======================================================================================
 # Set up results
@@ -34,7 +34,7 @@ results_dir.mkdir(parents=True, exist_ok=True)
 # Process registered suites and collect their results
 # ======================================================================================
 
-for suite in LAUNCH_CONFIG:
+for suite, options in get_launch_config().items():
     suite_dir = REPO_DIR / suite
     processor = suite_dir / "process.py"
     suite_results = suite_dir / "results"
@@ -51,17 +51,9 @@ for suite in LAUNCH_CONFIG:
         print("=" * 80)
 
         command = [sys.executable, str(processor)]
-        sinbad_root = LAUNCH_CONFIG[suite].get("sinbad_root")
+        sinbad_root = get_sinbad_root(REPO_DIR, suite, options)
         if sinbad_root is not None:
-            sinbad_root = Path(sinbad_root).expanduser()
-            if not sinbad_root.is_absolute():
-                sinbad_root = REPO_DIR / sinbad_root
             command.append(str(sinbad_root))
-        elif suite == "validation/sinbad":
-            raise ValueError(
-                "Set validation/sinbad sinbad_root in configs/launch_config.py "
-                "before processing the SINBAD suite."
-            )
 
         subprocess.run(
             command,

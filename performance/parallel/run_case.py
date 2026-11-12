@@ -17,10 +17,9 @@ from util import (
     output_directory,
     output_name,
     performance_task,
-    platform_resources,
     task_output_complete,
 )
-from configs.platform_config import PLATFORMS
+from configs.util import platform_names, platform_resources
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--name", required=True)
@@ -28,7 +27,9 @@ parser.add_argument("--nodes", type=int, required=True)
 parser.add_argument("--multiplier", type=int, required=True)
 parser.add_argument("--N_particle_base", type=int, required=True)
 parser.add_argument("--launcher", default="")
-parser.add_argument("--platform", choices=PLATFORMS, required=True)
+parser.add_argument(
+    "--platform", choices=platform_names(include_local=False), required=True
+)
 args = parser.parse_args()
 
 suite_dir = Path(__file__).resolve().parent

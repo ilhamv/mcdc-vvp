@@ -1,7 +1,6 @@
 """Build and launch the analytical fixed-source verification study with Maestro."""
 
 import argparse
-import os
 import subprocess
 from pathlib import Path
 
@@ -25,21 +24,18 @@ if str(REPO_DIR) not in sys.path:
 # Load shared VVP configs
 # ======================================================================================
 
-from configs.platform_config import PLATFORMS
 from configs.util import (
     allocation_metadata,
-    case_outputs_complete,
+    get_batch_config,
     get_case_walltime,
+    get_platform,
     get_task_walltime,
-    select_tasks,
+    get_user_config,
+    load_selected_tasks,
+    maestro_command,
+    platform_names,
 )
-
-# User overrides are optional for local runs.
-try:
-    from configs.user_config import USER_CONFIG
-except ImportError:
-    USER_CONFIG = {}
-
+from verification.util import case_outputs_complete
 
 # ======================================================================================
 # Command-line arguments
@@ -48,7 +44,7 @@ except ImportError:
 parser = argparse.ArgumentParser(
     description="Launch the MC/DC VVP analytical multigroup fixed-source suite."
 )
-parser.add_argument("--platform", default="local", choices=["local"] + list(PLATFORMS))
+parser.add_argument("--platform", default="local", choices=platform_names())
 parser.add_argument(
     "--N_node",
     type=int,
@@ -69,55 +65,27 @@ args = parser.parse_args()
 # ======================================================================================
 
 suite_dir = Path(__file__).resolve().parent
-task_file = suite_dir / "task.yaml"
 run_case = suite_dir / "run_case.py"
 study_file = suite_dir / "study.yaml"
 
 
 # ======================================================================================
-# Platform settings
+# Tasks and platform settings
 # ======================================================================================
 
-with task_file.open() as stream:
-    config = yaml.safe_load(stream)
-tasks = select_tasks(config, suite_dir, args.platform, args.platforms, args.N_node)
+tasks = load_selected_tasks(suite_dir, args.platform, args.platforms, args.N_node)
 if not tasks:
     print(f"No tasks configured for {args.platform}.")
     raise SystemExit(0)
 
-local = args.platform == "local"
-user_platform_config = USER_CONFIG.get(args.platform, {})
-
-mcdc_python = user_platform_config.get("mcdc_python")
-
-# Use the active interpreter unless this platform specifies another MC/DC environment.
-if mcdc_python is None:
-    mcdc_python = sys.executable
-else:
-    mcdc_python = str(Path(mcdc_python).expanduser())
-
-if not local:
-    platform = PLATFORMS[args.platform]
-    scheduler = platform["scheduler"]
-    cpu_cores = platform["cpu_cores_per_node"]
-
-    account = user_platform_config.get("account")
-    queue = user_platform_config.get("queue")
-    reservation = user_platform_config.get("reservation")
-
-    if account is None:
-        raise ValueError(
-            f"Platform '{args.platform}' requires an account. "
-            "Create configs/user_config.py from configs/user_config.py.template."
-        )
+platform = get_platform(args.platform)
+user = get_user_config(args.platform)
+batch = get_batch_config(platform, user)
+mcdc_python = user["mcdc_python"]
+cpu_cores = platform["cpu_cores_per_node"]
 
 
-# ======================================================================================
-# Load tasks
-# ======================================================================================
-
-
-for case_name, task in tasks.items():
+for task in tasks.values():
     get_task_walltime(task, args.walltime)
 
 
@@ -153,14 +121,14 @@ for case_name, task in tasks.items():
     command = f"{mcdc_python} {run_case} --name {case_name}"
 
     # Maestro replaces LAUNCHER with the scheduler-specific process launcher.
-    if not local:
+    if batch:
         command += ' --launcher "$(LAUNCHER)"'
 
     case_nodes[case_name] = nodes
     run = {"cmd": command}
 
     # Scheduled studies require explicit resources; local studies run directly.
-    if not local:
+    if batch:
         run["nodes"] = nodes
         walltime = get_case_walltime(task, platform, args.walltime)
         run["walltime"] = walltime
@@ -192,20 +160,7 @@ study = {
     "study": steps,
 }
 
-if not local:
-    # Attach batch settings only when Maestro submits to a scheduler.
-    batch = {
-        "type": scheduler,
-        "host": platform["host"],
-        "bank": account,
-    }
-
-    if queue is not None:
-        batch["queue"] = queue
-
-    if reservation is not None:
-        batch["reservation"] = reservation
-
+if batch:
     study["batch"] = batch
 
 
@@ -221,31 +176,8 @@ with study_file.open("w") as f:
 # Launch Maestro
 # ======================================================================================
 
-maestro_python = None
-
-if not local:
-    maestro_python = user_platform_config.get("maestro_python")
-
-env = os.environ.copy()
-
-# Use the configured Maestro environment when it differs from the active one.
-if maestro_python is None:
-    maestro_command = ["maestro", "run", "study.yaml"]
-else:
-    maestro_python = Path(maestro_python).expanduser()
-    maestro_bin = maestro_python.parent
-    # Keep executables spawned by Maestro in the same configured environment.
-    env["PATH"] = f"{maestro_bin}:{env['PATH']}"
-
-    maestro_command = [
-        str(maestro_python),
-        "-m",
-        "maestrowf.maestro",
-        "run",
-        "study.yaml",
-    ]
-
-subprocess.run(maestro_command, cwd=suite_dir, check=True, env=env)
+command, env = maestro_command(user, study_file.name)
+subprocess.run(command, cwd=suite_dir, check=True, env=env)
 
 
 # ======================================================================================
@@ -265,8 +197,8 @@ latest_run = maestro_runs[-1]
 
 launch_config = {
     "platform": args.platform,
-    "scheduler": "local" if local else scheduler,
-    **allocation_metadata(case_nodes, 1 if local else cpu_cores),
+    "scheduler": platform["scheduler"],
+    **allocation_metadata(case_nodes, cpu_cores),
     "walltime": args.walltime,
     "case_walltimes": case_walltimes,
     "mcdc_python": mcdc_python,
@@ -290,11 +222,11 @@ print(f"Nodes    : {launch_config['N_node'] or case_nodes}")
 print(f"Python   : {mcdc_python}")
 print(f"Study    : {study_file}")
 
-if not local:
-    print(f"Scheduler: {scheduler}")
-    print(f"Account  : {account}")
-    print(f"Queue    : {queue}")
-    print(f"Reserv.  : {reservation}")
+if batch:
+    print(f"Scheduler: {batch['type']}")
+    print(f"Account  : {batch['bank']}")
+    print(f"Queue    : {batch.get('queue')}")
+    print(f"Reserv.  : {batch.get('reservation')}")
     print("Walltimes:")
     for case_name, walltime in case_walltimes.items():
         print(f"  {case_name}: {walltime}")

@@ -1,7 +1,6 @@
 """Build and launch the MC/DC parallel-performance study with Maestro."""
 
 import argparse
-import os
 import shlex
 import subprocess
 import sys
@@ -21,21 +20,23 @@ if str(REPO_DIR) not in sys.path:
 # Load shared VVP configs
 # ======================================================================================
 
-from configs.platform_config import PLATFORMS
-from configs.util import get_case_walltime, get_task_walltime, select_tasks
+from configs.util import (
+    get_batch_config,
+    get_case_walltime,
+    get_platform,
+    get_task_walltime,
+    get_user_config,
+    load_selected_tasks,
+    maestro_command,
+    platform_names,
+    platform_resources,
+)
 from util import (
     NODE_COUNTS,
     case_directory,
-    platform_resources,
     task_output_complete,
     performance_tasks,
 )
-
-try:
-    from configs.user_config import USER_CONFIG
-except ImportError:
-    USER_CONFIG = {}
-
 
 # ======================================================================================
 # Command-line arguments
@@ -44,7 +45,9 @@ except ImportError:
 parser = argparse.ArgumentParser(
     description="Launch the MC/DC parallel-performance suite."
 )
-parser.add_argument("--platform", choices=PLATFORMS, default="dane")
+parser.add_argument(
+    "--platform", choices=platform_names(include_local=False), default="dane"
+)
 parser.add_argument(
     "--N_node_max",
     "--N_node",
@@ -73,36 +76,20 @@ args = parser.parse_args()
 # ======================================================================================
 
 suite_dir = Path(__file__).resolve().parent
-task_file = suite_dir / "task.yaml"
 run_case = suite_dir / "run_case.py"
 study_file = suite_dir / f"study_{args.platform}.yaml"
-with task_file.open() as stream:
-    config = yaml.safe_load(stream)
-task_config = select_tasks(
-    config, suite_dir, args.platform, args.platforms, args.N_node_max
+task_config = load_selected_tasks(
+    suite_dir, args.platform, args.platforms, args.N_node_max
 )
 if not task_config:
     print(f"No tasks configured for {args.platform}.")
     raise SystemExit(0)
 
-platform = PLATFORMS[args.platform]
+platform = get_platform(args.platform)
+user = get_user_config(args.platform)
+batch = get_batch_config(platform, user, dry_run=args.dry_run)
+mcdc_python = user["mcdc_python"]
 resources = platform_resources(args.platform)
-user_platform_config = USER_CONFIG.get(args.platform, {})
-
-mcdc_python = user_platform_config.get("mcdc_python")
-if mcdc_python is None:
-    mcdc_python = sys.executable
-else:
-    mcdc_python = str(Path(mcdc_python).expanduser())
-
-account = user_platform_config.get("account")
-if account is None and not args.dry_run:
-    raise ValueError(
-        f"Platform '{args.platform}' requires an account. Create configs/user_config.py "
-        "from configs/user_config.py.template."
-    )
-if account is None:
-    account = "UNCONFIGURED"
 
 # ======================================================================================
 # Load tasks
@@ -183,19 +170,9 @@ study = {
         "description": "MC/DC parallel-performance scaling study",
     },
     "env": {"variables": {}},
-    "batch": {
-        "type": platform["scheduler"],
-        "host": platform["host"],
-        "bank": account,
-    },
+    "batch": batch,
     "study": steps,
 }
-queue = user_platform_config.get("queue")
-reservation = user_platform_config.get("reservation")
-if queue is not None:
-    study["batch"]["queue"] = queue
-if reservation is not None:
-    study["batch"]["reservation"] = reservation
 
 # ======================================================================================
 # Write Maestro study
@@ -218,9 +195,9 @@ print(f"Skipped  : {len(skipped_tasks)}")
 print(f"Study    : {study_file}")
 print(f"Python   : {mcdc_python}")
 print(f"Scheduler: {platform['scheduler']}")
-print(f"Account  : {account}")
-print(f"Queue    : {queue}")
-print(f"Reserv.  : {reservation}")
+print(f"Account  : {batch['bank']}")
+print(f"Queue    : {batch.get('queue')}")
+print(f"Reserv.  : {batch.get('reservation')}")
 print("Exclusive: True")
 print("Walltimes:")
 for task_name, walltime in case_walltimes.items():
@@ -233,21 +210,8 @@ if args.dry_run or not steps:
 # Launch Maestro
 # ======================================================================================
 
-maestro_python = user_platform_config.get("maestro_python")
-env = os.environ.copy()
-if maestro_python is None:
-    maestro_command = ["maestro", "run", study_file.name]
-else:
-    maestro_python = Path(maestro_python).expanduser()
-    env["PATH"] = f"{maestro_python.parent}:{env['PATH']}"
-    maestro_command = [
-        str(maestro_python),
-        "-m",
-        "maestrowf.maestro",
-        "run",
-        study_file.name,
-    ]
-subprocess.run(maestro_command, cwd=suite_dir, check=True, env=env)
+command, env = maestro_command(user, study_file.name)
+subprocess.run(command, cwd=suite_dir, check=True, env=env)
 
 # ======================================================================================
 # Store launch metadata

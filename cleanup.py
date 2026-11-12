@@ -20,13 +20,13 @@ if str(REPO_DIR) not in sys.path:
 # Load suite configuration
 # ======================================================================================
 
-from configs.launch_config import LAUNCH_CONFIG
+from configs.util import get_launch_config
 
 # ======================================================================================
 # Clean registered suites
 # ======================================================================================
 
-for suite in LAUNCH_CONFIG:
+for suite in get_launch_config():
     suite_dir = REPO_DIR / suite
     cleaner = suite_dir / "cleanup.py"
 

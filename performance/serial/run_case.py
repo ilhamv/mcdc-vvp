@@ -16,7 +16,7 @@ from util import (
     task_particle_counts,
 )
 
-from configs.platform_config import PLATFORMS
+from configs.util import platform_names
 
 # ======================================================================================
 # Command-line arguments
@@ -25,7 +25,7 @@ from configs.platform_config import PLATFORMS
 parser = argparse.ArgumentParser(description="Run one MC/DC serial-performance case.")
 parser.add_argument("--name", required=True, help="Serial-performance case name.")
 parser.add_argument("--mode", required=True, choices=MODES)
-parser.add_argument("--platform", required=True, choices=["local"] + list(PLATFORMS))
+parser.add_argument("--platform", required=True, choices=platform_names())
 parser.add_argument("--task-file", default="task.yaml")
 parser.add_argument(
     "--launcher",

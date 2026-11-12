@@ -1,9 +1,15 @@
 """Shared configuration helpers for the SINBAD validation suite."""
 
-import math
+import sys
 from pathlib import Path
 
 import yaml
+
+REPO_DIR = Path(__file__).resolve().parents[2]
+if str(REPO_DIR) not in sys.path:
+    sys.path.insert(0, str(REPO_DIR))
+
+from configs.util import get_task_walltime
 
 SINBAD_PACKAGE_TOKENS = {
     "oktavian-si-60": "oktav_si",
@@ -47,11 +53,6 @@ def load_tasks(task_file):
                     "walltime in hours."
                 )
 
-            if "walltime_factor" in task:
-                raise ValueError(
-                    "Replace walltime_factor with required walltime in hours."
-                )
-
             N_particle = task.get("N_particle")
             if (
                 isinstance(N_particle, bool)
@@ -62,14 +63,10 @@ def load_tasks(task_file):
                     f"Particle count for '{benchmark}/{case}' must be a positive integer."
                 )
 
-            walltime = task.get("walltime")
-            if (
-                isinstance(walltime, bool)
-                or not isinstance(walltime, (int, float))
-                or not math.isfinite(walltime)
-                or walltime <= 0.0
-            ):
-                raise ValueError(f"Walltime for '{benchmark}/{case}' must be positive.")
+            try:
+                get_task_walltime(task)
+            except ValueError as error:
+                raise ValueError(f"{benchmark}/{case}: {error}") from error
 
             tasks.append((benchmark, case, task))
 

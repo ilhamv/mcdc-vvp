@@ -11,8 +11,7 @@ if str(REPO_DIR) not in sys.path:
     sys.path.insert(0, str(REPO_DIR))
 
 from performance.metrics import output_complete, tally_score_paths
-from configs.platform_config import PLATFORMS
-from configs.util import get_task_walltime
+from configs.util import get_task_walltime, platform_names, platform_resources
 
 NODE_COUNTS = (1, 2, 4, 8, 16, 32, 64, 128)
 WORKLOAD_MULTIPLIERS = (1, 2, 4, 8, 16)
@@ -29,7 +28,7 @@ def performance_task(case_name, N_particle_base, N_node, multiplier, platform="d
     N_particle_base = _positive_integer(N_particle_base, "N_particle_base")
     N_node = _positive_integer(N_node, "N_node")
     multiplier = _positive_integer(multiplier, "multiplier")
-    if platform not in PLATFORMS:
+    if platform not in platform_names(include_local=False):
         raise ValueError(f"Unknown platform: {platform!r}.")
     return {
         "case": case_name,
@@ -118,17 +117,6 @@ def output_name(task):
 def output_directory(suite_directory, task):
     """Keep each platform's results separate from inputs and other platforms."""
     return case_directory(suite_directory, task) / "outputs" / task["platform"]
-
-
-def platform_resources(platform_name):
-    """Select full-CPU or one-rank-per-GPU execution from platform resources."""
-    platform = PLATFORMS[platform_name]
-    gpus = platform["gpus_per_node"]
-    return {
-        "target": "gpu" if gpus else "cpu",
-        "ranks_per_node": gpus or platform["cpu_cores_per_node"],
-        "gpus_per_node": gpus,
-    }
 
 
 def task_output_complete(suite_directory, task):

@@ -1,17 +1,183 @@
-"""Shared helpers for VVP configuration and launch processing."""
+"""Read and resolve platform, user, and launch settings for VVP campaigns."""
 
 import math
+import os
+import sys
 from pathlib import Path
+
+import yaml
 
 from configs.platform_config import PLATFORMS
 
+# ======================================================================================
+# Campaign and suite selection
+# ======================================================================================
 
-def case_outputs_complete(case_dir, sample_counts):
-    """Return whether every expected sample output exists for a case."""
-    case_dir = Path(case_dir)
-    return all(
-        (case_dir / f"output_{int(count)}.h5").is_file() for count in sample_counts
-    )
+
+def get_launch_config():
+    """Read the configured suites when running a campaign entry point."""
+    from configs.launch_config import LAUNCH_CONFIG
+
+    return LAUNCH_CONFIG
+
+
+def suite_launch_args(repo_dir, platform):
+    """Select enabled suites and build their command-line overrides."""
+    selected = {}
+    for suite, options in get_launch_config().items():
+        if not options.get("enabled", False):
+            continue
+        platforms = options.get("platforms")
+        nodes = options.get("N_node")
+        if nodes is None:
+            nodes = options.get("N_node_max")
+        if not load_selected_tasks(repo_dir / suite, platform, platforms, nodes):
+            continue
+        args = ["--platform", platform]
+        if platforms:
+            args.extend(["--platforms", *platforms])
+        if nodes is not None:
+            args.extend(["--N_node", str(nodes)])
+        if options.get("walltime") is not None:
+            args.extend(["--walltime", str(options["walltime"])])
+        selected[suite] = args
+    return selected
+
+
+# ======================================================================================
+# Task and platform selection
+# ======================================================================================
+
+
+def platform_names(include_local=True):
+    """Return platforms available to a launcher."""
+    return ("local", *PLATFORMS) if include_local else tuple(PLATFORMS)
+
+
+def load_selected_tasks(suite_dir, platform, platforms=None, N_node=None):
+    """Read a suite's task.yaml and apply the launch overrides."""
+    with (suite_dir / "task.yaml").open() as stream:
+        config = yaml.safe_load(stream)
+    return select_tasks(config, suite_dir, platform, platforms, N_node)
+
+
+def select_tasks(config, suite_dir, platform, platforms=None, N_node=None):
+    """Return the selected task mapping, with effective resources for the run."""
+    override = [] if platforms is None else platform_list(platforms)
+    default_nodes = 128 if suite_dir.name == "parallel" else 1
+    nested = suite_dir.name in {"sinbad", "serial"}
+    selected = {}
+    for case, settings in config.items():
+        for mode, task in (settings.items() if nested else [(None, settings)]):
+            if "walltime" not in task:
+                raise ValueError(f"{case}: each task must define walltime.")
+            defaults = platform_list(task.get("platforms", [platform]))
+            targets = override or defaults
+            if platform not in targets:
+                continue
+            nodes = task.get("N_node", default_nodes) if N_node is None else N_node
+            if type(nodes) is not int or nodes < 1:
+                raise ValueError(f"{case}: N_node must be a positive integer.")
+            if platform == "local" and N_node is None:
+                nodes = 1
+            limit = (
+                1 if suite_dir.name == "serial" else get_platform(platform)["max_nodes"]
+            )
+            if nodes > limit:
+                raise ValueError(
+                    f"{case}: N_node={nodes} exceeds the {limit}-node limit."
+                )
+            effective = {**task, "platforms": targets, "N_node": nodes}
+            if nested:
+                selected.setdefault(case, {})[mode] = effective
+            else:
+                selected[case] = effective
+    return selected
+
+
+def platform_list(value):
+    """Validate a configured list of target platforms."""
+    if not isinstance(value, list) or any(
+        name not in platform_names() for name in value
+    ):
+        raise ValueError(f"Invalid platforms list: {value!r}")
+    return value
+
+
+# ======================================================================================
+# Platform resources and user settings
+# ======================================================================================
+
+
+def get_platform(name):
+    """Return hardware and scheduler settings for a platform."""
+    if name == "local":
+        return {
+            "host": "local",
+            "scheduler": "local",
+            "cpu_cores_per_node": 1,
+            "gpus_per_node": 0,
+            "max_nodes": 1,
+        }
+    return PLATFORMS[name]
+
+
+def get_user_config(platform_name):
+    """Resolve account settings and Python interpreters for this platform."""
+    try:
+        from configs.user_config import USER_CONFIG
+    except ModuleNotFoundError as error:
+        if error.name != "configs.user_config":
+            raise
+        USER_CONFIG = {}
+
+    settings = USER_CONFIG.get(platform_name, {})
+    python = settings.get("mcdc_python")
+    maestro = settings.get("maestro_python") if platform_name != "local" else None
+    return {
+        "account": settings.get("account"),
+        "queue": settings.get("queue"),
+        "reservation": settings.get("reservation"),
+        "mcdc_python": (
+            sys.executable if python is None else str(Path(python).expanduser())
+        ),
+        "maestro_python": None if maestro is None else str(Path(maestro).expanduser()),
+    }
+
+
+def get_batch_config(platform, user, dry_run=False):
+    """Build the Maestro batch settings for a scheduled study."""
+    if platform["scheduler"] == "local":
+        return {}
+    account = user.get("account")
+    if account is None:
+        if not dry_run:
+            raise ValueError(
+                f"Platform '{platform['host']}' requires an account. "
+                "Create configs/user_config.py from configs/user_config.py.template."
+            )
+        account = "UNCONFIGURED"
+    batch = {"type": platform["scheduler"], "host": platform["host"], "bank": account}
+    for key in ("queue", "reservation"):
+        if user.get(key) is not None:
+            batch[key] = user[key]
+    return batch
+
+
+def platform_resources(platform_name):
+    """Choose one rank per GPU or one rank per CPU core for a scaling study."""
+    platform = get_platform(platform_name)
+    gpus = platform["gpus_per_node"]
+    return {
+        "target": "gpu" if gpus else "cpu",
+        "ranks_per_node": gpus or platform["cpu_cores_per_node"],
+        "gpus_per_node": gpus,
+    }
+
+
+# ======================================================================================
+# Job walltime
+# ======================================================================================
 
 
 def get_task_walltime(task, walltime_override=None):
@@ -59,48 +225,21 @@ def get_case_walltime(task, platform, walltime_override=None):
     )
 
 
-def platform_list(value):
-    if not isinstance(value, list) or any(
-        not isinstance(name, str) or name not in {"local", *PLATFORMS} for name in value
-    ):
-        raise ValueError(f"Invalid platforms list: {value!r}")
-    return value
+# ======================================================================================
+# Maestro invocation and allocation metadata
+# ======================================================================================
 
 
-def select_tasks(config, suite_dir, platform, platforms=None, N_node=None):
-    """Return the selected task mapping, with effective resources for the run."""
-    override = [] if platforms is None else platform_list(platforms)
-    default_nodes = 128 if suite_dir.name == "parallel" else 1
-    nested = suite_dir.name in {"sinbad", "serial"}
-    selected = {}
-    for case, settings in config.items():
-        for mode, task in (settings.items() if nested else [(None, settings)]):
-            if "walltime" not in task:
-                raise ValueError(f"{case}: each task must define walltime.")
-            defaults = platform_list(task.get("platforms", [platform]))
-            targets = override or defaults
-            if platform not in targets:
-                continue
-            nodes = task.get("N_node", default_nodes) if N_node is None else N_node
-            if type(nodes) is not int or nodes < 1:
-                raise ValueError(f"{case}: N_node must be a positive integer.")
-            if platform == "local" and N_node is None:
-                nodes = 1
-            limit = (
-                1
-                if platform == "local" or suite_dir.name == "serial"
-                else PLATFORMS[platform]["max_nodes"]
-            )
-            if nodes > limit:
-                raise ValueError(
-                    f"{case}: N_node={nodes} exceeds the {limit}-node limit."
-                )
-            effective = {**task, "platforms": targets, "N_node": nodes}
-            if nested:
-                selected.setdefault(case, {})[mode] = effective
-            else:
-                selected[case] = effective
-    return selected
+def maestro_command(user, study_name):
+    """Build the Maestro invocation and its environment for the chosen interpreter."""
+    env = os.environ.copy()
+    python = user["maestro_python"]
+    if python is None:
+        return ["maestro", "run", study_name], env
+    env["PATH"] = os.pathsep.join(
+        (str(Path(python).parent), env.get("PATH", os.defpath))
+    )
+    return [python, "-m", "maestrowf.maestro", "run", study_name], env
 
 
 def allocation_metadata(case_nodes, ranks_per_node):
@@ -115,3 +254,20 @@ def allocation_metadata(case_nodes, ranks_per_node):
         "N_node": uniform,
         "N_process": uniform * ranks_per_node if uniform else None,
     }
+
+
+# ======================================================================================
+# Result processing
+# ======================================================================================
+
+
+def get_sinbad_root(repo_dir, suite, options):
+    """Resolve a configured SINBAD package path relative to the repository."""
+    path = options.get("sinbad_root")
+    if path is None:
+        if suite == "validation/sinbad":
+            raise ValueError(
+                "Set validation/sinbad sinbad_root in configs/launch_config.py before processing the SINBAD suite."
+            )
+        return None
+    return repo_dir / Path(path).expanduser()

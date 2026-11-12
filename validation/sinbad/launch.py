@@ -1,7 +1,6 @@
 """Build and launch the SINBAD validation study with Maestro."""
 
 import argparse
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -22,27 +21,25 @@ if str(REPO_DIR) not in sys.path:
 # Load shared VVP configs
 # ======================================================================================
 
-from configs.platform_config import PLATFORMS
 from configs.util import (
     allocation_metadata,
+    get_batch_config,
     get_case_walltime,
+    get_platform,
     get_task_walltime,
+    get_user_config,
+    maestro_command,
+    platform_names,
     select_tasks,
 )
 from util import case_directory, load_tasks, output_file
-
-try:
-    from configs.user_config import USER_CONFIG
-except ImportError:
-    USER_CONFIG = {}
-
 
 # ======================================================================================
 # Command-line arguments
 # ======================================================================================
 
 parser = argparse.ArgumentParser(description="Launch the MC/DC VVP SINBAD suite.")
-parser.add_argument("--platform", default="local", choices=["local"] + list(PLATFORMS))
+parser.add_argument("--platform", default="local", choices=platform_names())
 parser.add_argument("--N_node", type=int, default=None, help="Set the number of nodes.")
 parser.add_argument(
     "--walltime",
@@ -84,29 +81,11 @@ for benchmark, case, task in tasks:
 # Platform settings
 # ======================================================================================
 
-local = args.platform == "local"
-user_platform_config = USER_CONFIG.get(args.platform, {})
-mcdc_python = user_platform_config.get("mcdc_python")
-
-if mcdc_python is None:
-    mcdc_python = sys.executable
-else:
-    mcdc_python = str(Path(mcdc_python).expanduser())
-
-if not local:
-    platform = PLATFORMS[args.platform]
-    scheduler = platform["scheduler"]
-    cpu_cores = platform["cpu_cores_per_node"]
-
-    account = user_platform_config.get("account")
-    queue = user_platform_config.get("queue")
-    reservation = user_platform_config.get("reservation")
-
-    if account is None:
-        raise ValueError(
-            f"Platform '{args.platform}' requires an account. "
-            "Create configs/user_config.py from configs/user_config.py.template."
-        )
+platform = get_platform(args.platform)
+user = get_user_config(args.platform)
+batch = get_batch_config(platform, user)
+mcdc_python = user["mcdc_python"]
+cpu_cores = platform["cpu_cores_per_node"]
 
 
 # ======================================================================================
@@ -135,12 +114,12 @@ for benchmark, case, task in tasks:
 
     safe_name = name.replace("-", "_").replace("/", "__")
     command = f"{mcdc_python} {run_case} --benchmark {benchmark} --case {case}"
-    if not local:
+    if batch:
         command += ' --launcher "$(LAUNCHER)"'
 
     case_nodes[name] = nodes
     run = {"cmd": command}
-    if not local:
+    if batch:
         walltime = get_case_walltime(task, platform, args.walltime)
         case_walltimes[name] = walltime
         run.update(
@@ -173,12 +152,7 @@ study = {
     "study": steps,
 }
 
-if not local:
-    batch = {"type": scheduler, "host": platform["host"], "bank": account}
-    if queue is not None:
-        batch["queue"] = queue
-    if reservation is not None:
-        batch["reservation"] = reservation
+if batch:
     study["batch"] = batch
 
 
@@ -189,23 +163,8 @@ if not local:
 with study_file.open("w") as file:
     yaml.dump(study, file, sort_keys=False)
 
-maestro_python = None if local else user_platform_config.get("maestro_python")
-environment = os.environ.copy()
-
-if maestro_python is None:
-    maestro_command = ["maestro", "run", "study.yaml"]
-else:
-    maestro_python = Path(maestro_python).expanduser()
-    environment["PATH"] = f"{maestro_python.parent}:{environment['PATH']}"
-    maestro_command = [
-        str(maestro_python),
-        "-m",
-        "maestrowf.maestro",
-        "run",
-        "study.yaml",
-    ]
-
-subprocess.run(maestro_command, cwd=suite_dir, check=True, env=environment)
+command, env = maestro_command(user, study_file.name)
+subprocess.run(command, cwd=suite_dir, check=True, env=env)
 
 
 # ======================================================================================
@@ -221,8 +180,8 @@ if not maestro_runs:
 latest_run = maestro_runs[-1]
 launch_config = {
     "platform": args.platform,
-    "scheduler": "local" if local else scheduler,
-    **allocation_metadata(case_nodes, 1 if local else cpu_cores),
+    "scheduler": platform["scheduler"],
+    **allocation_metadata(case_nodes, cpu_cores),
     "walltime": args.walltime,
     "case_walltimes": case_walltimes,
     "mcdc_python": mcdc_python,
@@ -242,11 +201,11 @@ print(f"Platform : {args.platform}")
 print(f"Nodes    : {launch_config['N_node'] or case_nodes}")
 print(f"Python   : {mcdc_python}")
 print(f"Study    : {study_file}")
-if not local:
-    print(f"Scheduler: {scheduler}")
-    print(f"Account  : {account}")
-    print(f"Queue    : {queue}")
-    print(f"Reserv.  : {reservation}")
+if batch:
+    print(f"Scheduler: {batch['type']}")
+    print(f"Account  : {batch['bank']}")
+    print(f"Queue    : {batch.get('queue')}")
+    print(f"Reserv.  : {batch.get('reservation')}")
     print("Walltimes:")
     for name, walltime in case_walltimes.items():
         print(f"  {name}: {walltime}")

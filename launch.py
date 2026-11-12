@@ -4,7 +4,6 @@ import argparse
 import subprocess
 import sys
 
-import yaml
 from pathlib import Path
 
 # ======================================================================================
@@ -22,8 +21,7 @@ if str(REPO_DIR) not in sys.path:
 # Load launch configuration
 # ======================================================================================
 
-from configs.launch_config import LAUNCH_CONFIG
-from configs.util import select_tasks
+from configs.util import suite_launch_args
 
 # ======================================================================================
 # Command-line arguments
@@ -39,20 +37,7 @@ args = parser.parse_args()
 
 active_platform = args.platform
 
-selected_suites = {}
-for suite, options in LAUNCH_CONFIG.items():
-    if not options.get("enabled", False):
-        continue
-    suite_dir = REPO_DIR / suite
-    with (suite_dir / "task.yaml").open() as stream:
-        config = yaml.safe_load(stream)
-    nodes = options.get("N_node")
-    if nodes is None:
-        nodes = options.get("N_node_max")
-    if select_tasks(
-        config, suite_dir, active_platform, options.get("platforms"), nodes
-    ):
-        selected_suites[suite] = options
+selected_suites = suite_launch_args(REPO_DIR, active_platform)
 if not selected_suites:
     parser.error(f"No enabled suites are configured for platform '{active_platform}'.")
 
@@ -61,7 +46,7 @@ if not selected_suites:
 # Launch enabled, compatible suites
 # ======================================================================================
 
-for suite, options in selected_suites.items():
+for suite, arguments in selected_suites.items():
     suite_dir = REPO_DIR / suite
     launcher = suite_dir / "launch.py"
 
@@ -72,22 +57,7 @@ for suite, options in selected_suites.items():
         raise FileNotFoundError(f"Suite launcher not found: {launcher}")
 
     # Reuse the active interpreter so suite launchers inherit this environment.
-    command = [sys.executable, str(launcher)]
-
-    # Forward only options that are meaningful for the configured suite.
-    command.extend(["--platform", active_platform])
-
-    if options.get("platforms"):
-        command.extend(["--platforms", *options["platforms"]])
-
-    if options.get("N_node") is not None:
-        command.extend(["--N_node", str(options["N_node"])])
-
-    if options.get("walltime") is not None:
-        command.extend(["--walltime", str(options["walltime"])])
-
-    if options.get("N_node") is None and options.get("N_node_max") is not None:
-        command.extend(["--N_node_max", str(options["N_node_max"])])
+    command = [sys.executable, str(launcher), *arguments]
 
     print("=" * 80)
     print(f"Launching suite: {suite}")
