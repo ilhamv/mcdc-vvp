@@ -1,13 +1,3 @@
-# Walltime calibration: LLNL Dane, 1 full CPU node, 112 MPI ranks, Numba CPU.
-# Source: analytical_multigroup_fixed_source.zip :: maestro_run_20261106-215958/status.csv
-# Jobs submitted 2026-11-06; Run Time excludes queue wait and covers the full case job.
-# Requests [h] = ceil(1.5 * observed Run Time [s] / 36) / 100, rounded upward to 0.01 h.
-# FINISHED rows measure completed sequences. TIMEDOUT/FAILED rows are censored:
-# their buffered times are provisional rerun allowances, not calibrated completion times.
-# Recalibrate those cases after their complete sampling sequences finish.
-# Recalibrate after changes to inputs, sampling, execution mode, resources, or MC/DC.
-# A launch-level walltime overrides these values uniformly; use None to retain them.
-
 # =============================================================================
 # MC/DC Verification Task Definitions
 # =============================================================================
@@ -33,6 +23,9 @@
 #
 #         numpy.logspace(logN_min, logN_max, N_task, dtype=int)
 #
+# N_node is the number of nodes per job. walltime is the requested time per job in hours.
+# Calibrated values are provided as reference and default.
+#
 # Example
 # -------
 # logN_min: 5
@@ -52,121 +45,121 @@
 # =============================================================================
 
 azurv1:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.43
 
 azurv1-basic_techniques:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.43
 
 azurv1-weight_windows:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 4
   logN_max: 6
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.43
 
 azurv1-census:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.46
 
 azurv1-census-tally:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 4
   logN_max: 6
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.38
 
 azurv1_sub:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.38
 
 azurv1_super:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.46
 
 slab_absorbium:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.46
 
 slab_isobeam_td:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.46
 
 inf_shem361:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.53
 
 inf_shem361-weight_windows:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 3
   logN_max: 5
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.48
 
 inf_shem361_td:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.61
 
 inf_shem361_td-census:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.83
 
 reed:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 5
   logN_max: 7
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.43
 
 mms_two_group_slab:
-  platforms: [local, dane]
-  N_node: 1
   logN_min: 4
   logN_max: 6
   N_task: 7
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.43

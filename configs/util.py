@@ -21,31 +21,27 @@ def get_launch_config():
     return LAUNCH_CONFIG
 
 
-def suite_launch_args(repo_dir, platform):
+def suite_launch_args(platform):
     """Select enabled suites and build their command-line overrides."""
     selected = {}
     for suite, options in get_launch_config().items():
         if not options.get("enabled", False):
             continue
-        platforms = options.get("platforms")
-        nodes = options.get("N_node")
-        if nodes is None:
-            nodes = options.get("N_node_max")
-        if not load_selected_tasks(repo_dir / suite, platform, platforms, nodes):
-            continue
         args = ["--platform", platform]
-        if platforms:
-            args.extend(["--platforms", *platforms])
-        if nodes is not None:
-            args.extend(["--N_node", str(nodes)])
-        if options.get("walltime") is not None:
-            args.extend(["--walltime", str(options["walltime"])])
+        if platform != "local":
+            nodes = options.get("N_node")
+            if nodes is None:
+                nodes = options.get("N_node_max")
+            if nodes is not None:
+                args.extend(["--N_node", str(nodes)])
+            if options.get("walltime") is not None:
+                args.extend(["--walltime", str(options["walltime"])])
         selected[suite] = args
     return selected
 
 
 # ======================================================================================
-# Task and platform selection
+# Platform choices and task resources
 # ======================================================================================
 
 
@@ -54,54 +50,46 @@ def platform_names(include_local=True):
     return ("local", *PLATFORMS) if include_local else tuple(PLATFORMS)
 
 
-def load_selected_tasks(suite_dir, platform, platforms=None, N_node=None):
+def load_suite_tasks(suite_dir, platform, N_node=None):
     """Read a suite's task.yaml and apply the launch overrides."""
     with (suite_dir / "task.yaml").open() as stream:
         config = yaml.safe_load(stream)
-    return select_tasks(config, suite_dir, platform, platforms, N_node)
+    return resolve_task_resources(config, suite_dir, platform, N_node)
 
 
-def select_tasks(config, suite_dir, platform, platforms=None, N_node=None):
-    """Return the selected task mapping, with effective resources for the run."""
-    override = [] if platforms is None else platform_list(platforms)
+def resolve_task_resources(config, suite_dir, platform, N_node=None):
+    """Resolve the node count for every configured task on the chosen platform."""
     default_nodes = 128 if suite_dir.name == "parallel" else 1
     nested = suite_dir.name in {"sinbad", "serial"}
     selected = {}
     for case, settings in config.items():
         for mode, task in (settings.items() if nested else [(None, settings)]):
-            if "walltime" not in task:
-                raise ValueError(f"{case}: each task must define walltime.")
-            defaults = platform_list(task.get("platforms", [platform]))
-            targets = override or defaults
-            if platform not in targets:
-                continue
-            nodes = task.get("N_node", default_nodes) if N_node is None else N_node
-            if type(nodes) is not int or nodes < 1:
-                raise ValueError(f"{case}: N_node must be a positive integer.")
-            if platform == "local" and N_node is None:
-                nodes = 1
-            limit = (
-                1 if suite_dir.name == "serial" else get_platform(platform)["max_nodes"]
-            )
-            if nodes > limit:
-                raise ValueError(
-                    f"{case}: N_node={nodes} exceeds the {limit}-node limit."
+            if platform == "local":
+                effective = {**task, "N_node": 1}
+                effective.pop("walltime", None)
+            else:
+                if "walltime" not in task:
+                    raise ValueError(
+                        f"{case}: each scheduled task must define walltime."
+                    )
+                nodes = task.get("N_node", default_nodes) if N_node is None else N_node
+                if type(nodes) is not int or nodes < 1:
+                    raise ValueError(f"{case}: N_node must be a positive integer.")
+                limit = (
+                    1
+                    if suite_dir.name == "serial"
+                    else get_platform(platform)["max_nodes"]
                 )
-            effective = {**task, "platforms": targets, "N_node": nodes}
+                if nodes > limit:
+                    raise ValueError(
+                        f"{case}: N_node={nodes} exceeds the {limit}-node limit."
+                    )
+                effective = {**task, "N_node": nodes}
             if nested:
                 selected.setdefault(case, {})[mode] = effective
             else:
                 selected[case] = effective
     return selected
-
-
-def platform_list(value):
-    """Validate a configured list of target platforms."""
-    if not isinstance(value, list) or any(
-        name not in platform_names() for name in value
-    ):
-        raise ValueError(f"Invalid platforms list: {value!r}")
-    return value
 
 
 # ======================================================================================

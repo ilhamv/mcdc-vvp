@@ -26,13 +26,12 @@ from configs.util import (
     get_platform,
     get_task_walltime,
     get_user_config,
-    load_selected_tasks,
+    load_suite_tasks,
     maestro_command,
     platform_names,
     platform_resources,
 )
 from util import (
-    NODE_COUNTS,
     case_directory,
     task_output_complete,
     performance_tasks,
@@ -45,14 +44,11 @@ from util import (
 parser = argparse.ArgumentParser(
     description="Launch the MC/DC parallel-performance suite."
 )
-parser.add_argument(
-    "--platform", choices=platform_names(include_local=False), default="dane"
-)
+parser.add_argument("--platform", choices=platform_names(), default="local")
 parser.add_argument(
     "--N_node_max",
     "--N_node",
     type=int,
-    choices=NODE_COUNTS,
     default=None,
     help="Largest power-of-two node count to include.",
 )
@@ -67,7 +63,6 @@ parser.add_argument(
     default=None,
     help="Override every matrix job walltime uniformly, in hours.",
 )
-parser.add_argument("--platforms", nargs="+", help="Override task platform lists.")
 args = parser.parse_args()
 
 
@@ -78,11 +73,9 @@ args = parser.parse_args()
 suite_dir = Path(__file__).resolve().parent
 run_case = suite_dir / "run_case.py"
 study_file = suite_dir / f"study_{args.platform}.yaml"
-task_config = load_selected_tasks(
-    suite_dir, args.platform, args.platforms, args.N_node_max
-)
+task_config = load_suite_tasks(suite_dir, args.platform, args.N_node_max)
 if not task_config:
-    print(f"No tasks configured for {args.platform}.")
+    print("No tasks configured for this suite.")
     raise SystemExit(0)
 
 platform = get_platform(args.platform)
@@ -97,8 +90,9 @@ resources = platform_resources(args.platform)
 
 args.N_node_max = max(settings["N_node"] for settings in task_config.values())
 tasks = performance_tasks(task_config, args.N_node_max, args.platform)
-for task in tasks:
-    get_task_walltime(task, args.walltime)
+if batch:
+    for task in tasks:
+        get_task_walltime(task, args.walltime)
 
 
 # ======================================================================================
@@ -121,17 +115,25 @@ for task in tasks:
         print(f"Skip complete task: {task['name']}")
         continue
 
-    walltime = get_case_walltime(task, platform, args.walltime)
-    case_walltimes[task["name"]] = walltime
     command = (
         f"{shlex.quote(mcdc_python)} {shlex.quote(str(run_case))} "
         f"--name {shlex.quote(task['case'])} "
         f"--platform {args.platform} "
         f"--nodes {task['N_node']} "
         f"--multiplier {task['workload_multiplier']} "
-        f"--N_particle_base {task['N_particle_base']} "
-        '--launcher "$(LAUNCHER)"'
+        f"--N_particle_base {task['N_particle_base']}"
     )
+    run = {"cmd": command}
+    if batch:
+        walltime = get_case_walltime(task, platform, args.walltime)
+        case_walltimes[task["name"]] = walltime
+        run.update(
+            cmd=command + ' --launcher "$(LAUNCHER)"',
+            nodes=task["N_node"],
+            procs=task["N_node"] * resources["ranks_per_node"],
+            walltime=walltime,
+            exclusive=True,
+        )
     steps.append(
         {
             "name": task["name"],
@@ -139,17 +141,10 @@ for task in tasks:
                 f"{task['case']}: {task['N_node']} nodes, "
                 f"workload multiplier {task['workload_multiplier']}"
             ),
-            "run": {
-                "cmd": command,
-                "nodes": task["N_node"],
-                "procs": task["N_node"] * resources["ranks_per_node"],
-                "walltime": walltime,
-                "exclusive": True,
-            },
+            "run": run,
         }
     )
     if resources["target"] == "gpu":
-        run = steps[-1]["run"]
         run["gpus"] = 1
         if platform["scheduler"] == "flux":
             # Exclusive allocation reserves whole nodes. A nonexclusive inner
@@ -170,9 +165,10 @@ study = {
         "description": "MC/DC parallel-performance scaling study",
     },
     "env": {"variables": {}},
-    "batch": batch,
     "study": steps,
 }
+if batch:
+    study["batch"] = batch
 
 # ======================================================================================
 # Write Maestro study
@@ -195,13 +191,14 @@ print(f"Skipped  : {len(skipped_tasks)}")
 print(f"Study    : {study_file}")
 print(f"Python   : {mcdc_python}")
 print(f"Scheduler: {platform['scheduler']}")
-print(f"Account  : {batch['bank']}")
-print(f"Queue    : {batch.get('queue')}")
-print(f"Reserv.  : {batch.get('reservation')}")
-print("Exclusive: True")
-print("Walltimes:")
-for task_name, walltime in case_walltimes.items():
-    print(f"  {task_name}: {walltime}")
+if batch:
+    print(f"Account  : {batch['bank']}")
+    print(f"Queue    : {batch.get('queue')}")
+    print(f"Reserv.  : {batch.get('reservation')}")
+    print("Exclusive: True")
+    print("Walltimes:")
+    for task_name, walltime in case_walltimes.items():
+        print(f"  {task_name}: {walltime}")
 
 if args.dry_run or not steps:
     raise SystemExit(0)
@@ -232,7 +229,7 @@ launch_config = {
     "cpu_cores_per_node": cpu_cores,
     **resources,
     "output_layout": 2,
-    "walltime": args.walltime,
+    "walltime": args.walltime if batch else None,
     "task_walltimes": case_walltimes,
     "mcdc_python": mcdc_python,
 }

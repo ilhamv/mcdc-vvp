@@ -26,9 +26,9 @@ def _positive_integer(value, label):
 def performance_task(case_name, N_particle_base, N_node, multiplier, platform="dane"):
     """Create one task dictionary for a performance matrix point."""
     N_particle_base = _positive_integer(N_particle_base, "N_particle_base")
-    N_node = _positive_integer(N_node, "N_node")
+    N_node = 1 if platform == "local" else _positive_integer(N_node, "N_node")
     multiplier = _positive_integer(multiplier, "multiplier")
-    if platform not in platform_names(include_local=False):
+    if platform not in platform_names():
         raise ValueError(f"Unknown platform: {platform!r}.")
     return {
         "case": case_name,
@@ -44,6 +44,9 @@ def performance_task(case_name, N_particle_base, N_node, multiplier, platform="d
 
 def performance_tasks(config, N_node_max=128, platform="dane"):
     """Expand task.yaml into the node/workload matrix."""
+    local = platform == "local"
+    if local:
+        N_node_max = 1
     _positive_integer(N_node_max, "N_node_max")
     if N_node_max not in NODE_COUNTS:
         raise ValueError(f"N_node_max must be one of {NODE_COUNTS}; got {N_node_max}.")
@@ -60,21 +63,22 @@ def performance_tasks(config, N_node_max=128, platform="dane"):
             raise ValueError(
                 f"Configuration for {case_name!r} requires N_particle_base."
             )
-        if "walltime_factor" in settings:
-            raise ValueError(
-                "Replace walltime_factor with a walltime workload mapping."
-            )
-        walltimes = settings.get("walltime")
-        if not isinstance(walltimes, dict):
-            raise ValueError(
-                f"{case_name} requires walltime hours for every workload multiplier."
-            )
-        for multiplier in WORKLOAD_MULTIPLIERS:
-            if multiplier not in walltimes:
+        if not local:
+            if "walltime_factor" in settings:
                 raise ValueError(
-                    f"Missing walltime for {case_name}, multiplier {multiplier}."
+                    "Replace walltime_factor with a walltime workload mapping."
                 )
-            get_task_walltime({"walltime": walltimes[multiplier]})
+            walltimes = settings.get("walltime")
+            if not isinstance(walltimes, dict):
+                raise ValueError(
+                    f"{case_name} requires walltime hours for every workload multiplier."
+                )
+            for multiplier in WORKLOAD_MULTIPLIERS:
+                if multiplier not in walltimes:
+                    raise ValueError(
+                        f"Missing walltime for {case_name}, multiplier {multiplier}."
+                    )
+                get_task_walltime({"walltime": walltimes[multiplier]})
         baseline = settings["N_particle_base"]
         if isinstance(baseline, dict):
             if platform not in baseline:
@@ -83,7 +87,7 @@ def performance_tasks(config, N_node_max=128, platform="dane"):
         N_particle_base = _positive_integer(
             baseline, f"{case_name} baseline particle count"
         )
-        case_limit = settings.get("N_node", N_node_max)
+        case_limit = 1 if local else settings.get("N_node", N_node_max)
         if case_limit not in NODE_COUNTS:
             raise ValueError(f"{case_name}: N_node must be one of {NODE_COUNTS}.")
         for N_node in NODE_COUNTS:
@@ -93,7 +97,7 @@ def performance_tasks(config, N_node_max=128, platform="dane"):
                 task = performance_task(
                     case_name, N_particle_base, N_node, multiplier, platform
                 )
-                task["walltime"] = walltimes[multiplier]
+                task["walltime"] = None if local else walltimes[multiplier]
                 task["comparison"] = settings.get("comparison", case_name)
                 task["method"] = settings.get("method", "Numba")
                 if not isinstance(task["method"], str) or not task["method"].strip():

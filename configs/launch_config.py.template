@@ -1,42 +1,41 @@
 """
 Suite selection and optional task overrides for MC/DC VVP campaigns.
+
+For scheduled runs, None uses each task's node count (N_node) or time limit in hours (walltime).
+Setting either value overrides that setting across the suite.
+Local runs ignore both settings.
+Leave sinbad_root as None until processing SINBAD results, then set it to the directory containing the benchmark packages.
 """
 
 LAUNCH_CONFIG = {
     "verification/analytical/multigroup/fixed_source": {
         "enabled": False,
-        "platforms": [],
         "N_node": None,
         "walltime": None,
     },
     "verification/analytical/multigroup/k_eigenvalue": {
         "enabled": False,
-        "platforms": [],
         "N_node": None,
         "walltime": None,
     },
     "verification/code_to_code/multigroup/fixed_source": {
         "enabled": False,
-        "platforms": [],
         "N_node": None,
         "walltime": None,
     },
     "validation/sinbad": {
         "enabled": False,
-        "platforms": [],
         "N_node": None,
         "walltime": None,
         "sinbad_root": None,
     },
     "performance/serial": {
         "enabled": False,
-        "platforms": [],
         "N_node": None,
         "walltime": None,
     },
     "performance/parallel": {
         "enabled": False,
-        "platforms": [],
         "N_node": None,
         "walltime": None,
     },

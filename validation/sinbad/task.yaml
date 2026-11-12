@@ -1,34 +1,60 @@
-# Walltime is required for every case/mode job, in hours.
-# Migration basis: previous 24-hour base on ten-node Dane multiplied by each former case/mode factor.
-# Values are provisional carry-forwards; recalibration is pending.
-# Calibration comments should record platform/resources, workload, measured time,
-# and margin. A launch --walltime overrides all job requests uniformly.
+# =============================================================================
+# MC/DC Validation Task Definitions
+# =============================================================================
+#
+# This file defines the SINBAD validation cases.
+#
+# Each benchmark contains case keys corresponding to directories under this suite:
+#
+#     fng-tud-sic / p1  ->  sinbad/fng-tud-sic/p1/
+#
+# Parameters
+# ----------
+# N_particle : int
+#     Number of source particles per batch.
+#     The case's input.py sets the number of batches.
+#
+# N_node is the number of nodes per job.
+# walltime is the requested time per job in hours.
+# Calibrated values are provided as reference and default.
+#
+# Example
+# -------
+# fng-tud-sic:
+#   p1:
+#     N_particle: 1_000_000_000
+#     N_node: 10
+#     walltime: 0.24
+#
+# This runs the P1 case with one billion particles per batch.
+#
+# =============================================================================
 
 oktavian-si-60:
   neutron_leakage:
-    platforms: [local, dane]
-    N_node: 10
     N_particle: 1_000_000_000
+    # Calibration: Dane, [short commit tag, and date time]
+    N_node: 10
     walltime: 8.16
 
 fng-tud-sic:
   p1:
-    platforms: [local, dane]
-    N_node: 10
     N_particle: 1_000_000_000
+    # Calibration: Dane, [short commit tag, and date time]
+    N_node: 10
     walltime: 0.24
   p2:
-    platforms: [local, dane]
-    N_node: 10
     N_particle: 1_000_000_000
+    # Calibration: Dane, [short commit tag, and date time]
+    N_node: 10
     walltime: 0.21
   p3:
-    platforms: [local, dane]
-    N_node: 10
     N_particle: 1_000_000_000
+    # Calibration: Dane, [short commit tag, and date time]
+    N_node: 10
     walltime: 0.21
   p4:
-    platforms: [local, dane]
-    N_node: 10
     N_particle: 1_000_000_000
+    # Calibration: Dane, [short commit tag, and date time]
+    N_node: 10
     walltime: 0.21

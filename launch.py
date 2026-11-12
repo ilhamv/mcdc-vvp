@@ -21,7 +21,7 @@ if str(REPO_DIR) not in sys.path:
 # Load launch configuration
 # ======================================================================================
 
-from configs.util import suite_launch_args
+from configs.util import platform_names, suite_launch_args
 
 # ======================================================================================
 # Command-line arguments
@@ -31,19 +31,20 @@ parser = argparse.ArgumentParser(description="Launch enabled MC/DC VVP suites.")
 parser.add_argument(
     "--platform",
     default="local",
-    help="Launch enabled suites that list PLATFORM (default: local).",
+    choices=platform_names(),
+    help="Launch all enabled suites on this platform (default: local).",
 )
 args = parser.parse_args()
 
 active_platform = args.platform
 
-selected_suites = suite_launch_args(REPO_DIR, active_platform)
+selected_suites = suite_launch_args(active_platform)
 if not selected_suites:
-    parser.error(f"No enabled suites are configured for platform '{active_platform}'.")
+    parser.error("No suites are enabled in the launch configuration.")
 
 
 # ======================================================================================
-# Launch enabled, compatible suites
+# Launch enabled suites
 # ======================================================================================
 
 for suite, arguments in selected_suites.items():

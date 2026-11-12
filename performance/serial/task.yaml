@@ -1,21 +1,64 @@
-# Walltime is required for every case/mode job, in hours.
-# Migration basis: previous 24-hour base multiplied by each former case/mode factor.
-# Values are provisional carry-forwards; recalibration is pending.
-# Calibration comments should record platform/resources, workload, measured time,
-# and margin. A launch --walltime overrides all job requests uniformly.
+# =============================================================================
+# MC/DC Performance Task Definitions
+# =============================================================================
+#
+# This file defines the serial performance cases.
+#
+# Each top-level key corresponds to a case directory under this suite, for example:
+#
+#     kobayashi-detector  ->  serial/cases/kobayashi-detector/
+#
+# Within each case, define a python block, a numba block, or both.
+# Each mode runs its sampling sequence in one job using one process.
+#
+# Parameters
+# ----------
+# logN_min : int
+#     Base-10 logarithm of the minimum number of particles per batch.
+#
+# logN_max : int
+#     Base-10 logarithm of the maximum number of particles per batch.
+#
+# N_task : int
+#     Number of particle counts sampled between the two bounds, inclusive.
+#
+#         numpy.logspace(logN_min, logN_max, N_task, dtype=int)
+#
+# N_node is 1 for a serial job.
+# walltime is the requested time in hours for the mode's full sampling sequence.
+# Calibrated values are provided as reference and default.
+#
+# Example
+# -------
+# python:
+#   logN_min: 1
+#   logN_max: 4
+#   N_task: 7
+#
+# Particles per batch in Python mode:
+#
+#     10
+#     31
+#     100
+#     316
+#     1000
+#     3162
+#     10000
+#
+# =============================================================================
 
 kobayashi-detector:
   numba:
-    platforms: [local, dane]
-    N_node: 1
     logN_min: 1
     logN_max: 6
     N_task: 11
+    # Calibration: [platform, short commit tag, and date time]
+    N_node: 1
     walltime: 24
   python:
-    platforms: [local, dane]
-    N_node: 1
     logN_min: 1
     logN_max: 4
     N_task: 7
+    # Calibration: [platform, short commit tag, and date time]
+    N_node: 1
     walltime: 24

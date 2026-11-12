@@ -1,9 +1,47 @@
+# =============================================================================
+# MC/DC Performance Task Definitions
+# =============================================================================
+#
+# This file defines the parallel performance cases.
+#
+# Each top-level key corresponds to a case directory under this suite, for example:
+#
+#     kobayashi-detector  ->  parallel/cases/kobayashi-detector/
+#
+# Parameters
+# ----------
+# N_particle_base : int or mapping
+#     Baseline particles per batch on one node, shared or set by platform.
+#     Each job multiplies this baseline by its node count and workload multiplier.
+#
+# method : str, optional
+#     Label for the method in performance plots (default: Numba).
+#
+# comparison : str, optional
+#     Name used to group cases for comparison (default: the case name).
+#
+# N_node is the largest node count in the scaling study.
+# The study uses powers of two from one node through N_node, up to 128 nodes.
+# walltime maps each workload multiplier (1, 2, 4, 8, 16) to hours per job.
+# The same walltime applies at every node count for a given multiplier.
+# Calibrated values are provided as reference and default.
+#
+# Example
+# -------
+# N_particle_base: 30_000_000
+# N_node: 2
+# walltime: {1: 1.5, 2: 3.0, 4: 6.0, 8: 12.0, 16: 24.0}
+#
+# On two nodes, multiplier 4 runs 240 million particles per batch in a 6-hour job.
+#
+# =============================================================================
+
 kobayashi-detector:
-  platforms: [dane, tuolumne]
-  N_node: 128
   method: Analog
   N_particle_base: 30_000_000
   # Explicit hours per workload multiplier, shared across node counts.
+  # Calibration: [platform, short commit tag, and date time]
+  N_node: 128
   walltime:
     1: 1.5
     2: 3.0

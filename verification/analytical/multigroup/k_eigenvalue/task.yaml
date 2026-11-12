@@ -1,58 +1,76 @@
-# Walltime calibration: LLNL Dane, 1 full CPU node, 112 MPI ranks, Numba CPU.
-# Source: analytical_multigroup_k_eigenvalue.zip :: maestro_run_20261106-220001/status.csv
-# Jobs submitted 2026-11-06; Run Time excludes queue wait and covers the full case job.
-# Requests [h] = ceil(1.5 * observed Run Time [s] / 36) / 100, rounded upward to 0.01 h.
-# FINISHED rows measure completed sequences. TIMEDOUT/FAILED rows are censored:
-# their buffered times are provisional rerun allowances, not calibrated completion times.
-# Recalibrate those cases after their complete sampling sequences finish.
-# Recalibrate after changes to inputs, sampling, execution mode, resources, or MC/DC.
-# A launch-level walltime overrides these values uniformly; use None to retain them.
-
 # =============================================================================
 # MC/DC Verification Task Definitions
 # =============================================================================
 #
-# This file defines the analytical multigroup k-eigenvalue cases.
+# This file defines the analytical multigroup k-eigenvalue verification cases.
 #
-# Each top-level key corresponds to a case directory under this suite.
-# The active-cycle counts are generated with:
+# Each top-level key corresponds to a case directory under this suite, for example:
 #
-#     numpy.rint(
-#         numpy.geomspace(N_active_min, N_active_max, N_task)
-#     ).astype(int)
+#     one_group_slab  ->  k_eigenvalue/cases/one_group_slab/
 #
-# The fixed particle and inactive-cycle counts are set in each input.py.
+# Each case's input.py sets the particles per cycle and the number of inactive cycles.
+#
+# Parameters
+# ----------
+# N_active_min : int
+#     Minimum number of active cycles.
+#
+# N_active_max : int
+#     Maximum number of active cycles.
+#
+# N_task : int
+#     Number of active-cycle counts sampled between the two bounds, inclusive.
+#
+#         numpy.rint(numpy.geomspace(N_active_min, N_active_max, N_task)).astype(int)
+#
+# N_node is the number of nodes per job.
+# walltime is the requested time per job in hours.
+# Calibrated values are provided as reference and default.
+#
+# Example
+# -------
+# N_active_min: 20
+# N_active_max: 2000
+# N_task: 5
+#
+# Active cycles per run:
+#
+#     20
+#     63
+#     200
+#     632
+#     2000
 #
 # =============================================================================
 
 one_group_slab:
-  platforms: [local, dane]
-  N_node: 1
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.33
 
 kornreich:
-  platforms: [local, dane]
-  N_node: 1
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 0.33
 
 inf_shem361_subcritical:
-  platforms: [local, dane]
-  N_node: 1
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 1.08
 
 inf_shem361_supercritical:
-  platforms: [local, dane]
-  N_node: 1
   N_active_min: 20
   N_active_max: 2000
   N_task: 5
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 1
   walltime: 1.13

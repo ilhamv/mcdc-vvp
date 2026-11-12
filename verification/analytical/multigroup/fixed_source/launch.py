@@ -31,7 +31,7 @@ from configs.util import (
     get_platform,
     get_task_walltime,
     get_user_config,
-    load_selected_tasks,
+    load_suite_tasks,
     maestro_command,
     platform_names,
 )
@@ -57,7 +57,6 @@ parser.add_argument(
     default=None,
     help="Override every case job walltime uniformly, in hours.",
 )
-parser.add_argument("--platforms", nargs="+", help="Override task platform lists.")
 args = parser.parse_args()
 
 # ======================================================================================
@@ -73,9 +72,9 @@ study_file = suite_dir / "study.yaml"
 # Tasks and platform settings
 # ======================================================================================
 
-tasks = load_selected_tasks(suite_dir, args.platform, args.platforms, args.N_node)
+tasks = load_suite_tasks(suite_dir, args.platform, args.N_node)
 if not tasks:
-    print(f"No tasks configured for {args.platform}.")
+    print("No tasks configured for this suite.")
     raise SystemExit(0)
 
 platform = get_platform(args.platform)
@@ -85,8 +84,9 @@ mcdc_python = user["mcdc_python"]
 cpu_cores = platform["cpu_cores_per_node"]
 
 
-for task in tasks.values():
-    get_task_walltime(task, args.walltime)
+if batch:
+    for task in tasks.values():
+        get_task_walltime(task, args.walltime)
 
 
 # ======================================================================================
@@ -199,7 +199,7 @@ launch_config = {
     "platform": args.platform,
     "scheduler": platform["scheduler"],
     **allocation_metadata(case_nodes, cpu_cores),
-    "walltime": args.walltime,
+    "walltime": args.walltime if batch else None,
     "case_walltimes": case_walltimes,
     "mcdc_python": mcdc_python,
 }

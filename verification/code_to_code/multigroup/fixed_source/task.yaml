@@ -1,34 +1,68 @@
-# Walltime calibration: LLNL Dane, Numba CPU execution.
-# Latest report: 32 full CPU nodes, 3584 MPI ranks; jobs submitted 2026-11-06.
-# Source: code_to_code_multigroup_fixed_source.zip :: maestro_run_20261106-220004/status.csv
-# Target allocation: 64 full CPU nodes, 7168 MPI ranks.
-# Use Run Time, excluding queue wait, for the full case sampling sequence.
-# Completed jobs: walltime [h] = ceil(1.5 * Run Time [s] / 36) / 100.
-# This rounds upward to 0.01 h; the scheduler then applies its time resolution.
-# Walltime estimates from incomplete runs or different node counts are provisional.
-# Recalibrate after changes to inputs, sampling, execution mode, resources, or MC/DC.
-# A launch-level walltime overrides these requests uniformly; use None to retain them.
+# =============================================================================
+# MC/DC Verification Task Definitions
+# =============================================================================
+#
+# This file defines the fixed-source code-to-code multigroup verification cases.
+#
+# Each top-level key corresponds to a case directory under this suite, for example:
+#
+#     c5g7-4phase  ->  fixed_source/cases/c5g7-4phase/
+#
+# Each sampling point uses the batch count defined in the case's input.py.
+#
+# Parameters
+# ----------
+# logN_min : int
+#     Base-10 logarithm of the minimum number of particles per batch.
+#
+# logN_max : int
+#     Base-10 logarithm of the maximum number of particles per batch.
+#
+# N_task : int
+#     Number of particle counts sampled between the two bounds, inclusive.
+#
+#         numpy.logspace(logN_min, logN_max, N_task, dtype=int)
+#
+# N_node is the number of nodes per job.
+# walltime is the requested time per job in hours.
+# Calibrated values are provided as reference and default.
+#
+# Example
+# -------
+# logN_min: 5
+# logN_max: 7
+# N_task: 5
+#
+# Particles per batch:
+#
+#     100000
+#     316227
+#     1000000
+#     3162277
+#     10000000
+#
+# =============================================================================
 
 c5g7-4phase:
-  platforms: [dane]
-  N_node: 64
   logN_min: 5
   logN_max: 7
   N_task: 5
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 64
   walltime: 18.08
 
 kobayashi:
-  platforms: [dane]
-  N_node: 64
   logN_min: 8
   logN_max: 10
   N_task: 5
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 64
   walltime: 3.16
 
 kobayashi-detector:
-  platforms: [dane]
-  N_node: 64
   logN_min: 7
   logN_max: 9
   N_task: 5
+  # Calibration: Dane, [short commit tag, and date time]
+  N_node: 64
   walltime: 2.96

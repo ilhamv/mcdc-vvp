@@ -27,9 +27,7 @@ parser.add_argument("--nodes", type=int, required=True)
 parser.add_argument("--multiplier", type=int, required=True)
 parser.add_argument("--N_particle_base", type=int, required=True)
 parser.add_argument("--launcher", default="")
-parser.add_argument(
-    "--platform", choices=platform_names(include_local=False), required=True
-)
+parser.add_argument("--platform", choices=platform_names(), required=True)
 args = parser.parse_args()
 
 suite_dir = Path(__file__).resolve().parent
@@ -61,8 +59,9 @@ work_dir = Path(tempfile.mkdtemp(prefix=f"{task['name']}_", dir=workspaces_dir))
 env = os.environ.copy()
 env["NUMBA_CACHE_DIR"] = str(work_dir / "__numba_cache__")
 
+launcher = [] if args.platform == "local" else shlex.split(args.launcher)
 command = [
-    *shlex.split(args.launcher),
+    *launcher,
     sys.executable,
     str(input_file),
     "--mode=numba",
