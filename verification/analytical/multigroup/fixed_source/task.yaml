@@ -50,7 +50,7 @@ azurv1:
   N_task: 7
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 0.43
+  walltime: 0.46
 
 azurv1-basic_techniques:
   logN_min: 5
@@ -58,7 +58,7 @@ azurv1-basic_techniques:
   N_task: 7
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 0.43
+  walltime: 0.46
 
 azurv1-weight_windows:
   logN_min: 4
@@ -74,7 +74,7 @@ azurv1-census:
   N_task: 7
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 0.46
+  walltime: 0.48
 
 azurv1-census-tally:
   logN_min: 4
@@ -82,7 +82,7 @@ azurv1-census-tally:
   N_task: 7
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 0.38
+  walltime: 0.46
 
 azurv1_sub:
   logN_min: 5
@@ -90,7 +90,7 @@ azurv1_sub:
   N_task: 7
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 0.38
+  walltime: 0.46
 
 azurv1_super:
   logN_min: 5
@@ -98,7 +98,7 @@ azurv1_super:
   N_task: 7
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 0.46
+  walltime: 0.51
 
 slab_absorbium:
   logN_min: 5
@@ -114,7 +114,7 @@ slab_isobeam_td:
   N_task: 7
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 0.46
+  walltime: 0.48
 
 inf_shem361:
   logN_min: 5
@@ -122,7 +122,7 @@ inf_shem361:
   N_task: 7
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 0.53
+  walltime: 0.56
 
 inf_shem361-weight_windows:
   logN_min: 3
@@ -130,7 +130,7 @@ inf_shem361-weight_windows:
   N_task: 7
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 0.48
+  walltime: 0.46
 
 inf_shem361_td:
   logN_min: 5

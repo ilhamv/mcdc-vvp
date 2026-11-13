@@ -57,7 +57,7 @@ kornreich:
   N_task: 5
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 0.33
+  walltime: 0.36
 
 inf_shem361_subcritical:
   N_active_min: 20
@@ -73,4 +73,4 @@ inf_shem361_supercritical:
   N_task: 5
   # Calibration: Dane, [short commit tag, and date time]
   N_node: 1
-  walltime: 1.13
+  walltime: 1.18
